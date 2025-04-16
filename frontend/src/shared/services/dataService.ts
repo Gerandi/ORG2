@@ -31,13 +31,6 @@ class DataService {
   // Get all datasets
   public async getDatasets(): Promise<Dataset[]> {
     try {
-      // Check for authentication before trying to fetch
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        console.log('No authentication token, returning empty datasets array');
-        return [];
-      }
-      
       const datasets = await apiService.get<Dataset[]>(this.baseUrl);
       return datasets || [];
     } catch (error) {

@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Project } from '../../types/project';
 import projectsService from '../services/projectsService';
+import { useAuthContext } from './AuthContext';
 
 interface ProjectContextProps {
   projects: Project[];
@@ -17,12 +18,13 @@ interface ProjectContextProps {
 const ProjectContext = createContext<ProjectContextProps | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+  const { isAuthenticated } = useAuthContext();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  const fetchProjects = async (): Promise<void> => {
+  const fetchProjects = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
     
@@ -35,7 +37,7 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
   
   const selectProject = async (id: number): Promise<void> => {
     setIsLoading(true);
@@ -105,17 +107,15 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     }
   };
   
-  // Only load projects if user is authenticated
   useEffect(() => {
-    // Check if user is authenticated before fetching projects
-    const token = localStorage.getItem('access_token');
-    if (token) {
+    if (isAuthenticated) {
       fetchProjects();
     } else {
       // Clear projects if not authenticated
       setProjects([]);
+      setSelectedProject(null);
     }
-  }, []);
+  }, [fetchProjects, isAuthenticated]);
   
   return (
     <ProjectContext.Provider

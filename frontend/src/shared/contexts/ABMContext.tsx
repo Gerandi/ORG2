@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { ABMModel, Simulation, SimulationResults, Theory } from '../../types/abm';
 import { abmService } from '../services';
+import { useAuthContext } from './AuthContext';
 
 interface ABMContextProps {
   models: ABMModel[];
@@ -27,6 +28,7 @@ interface ABMContextProps {
 const ABMContext = createContext<ABMContextProps | undefined>(undefined);
 
 export const ABMProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+  const { isAuthenticated } = useAuthContext();
   const [models, setModels] = useState<ABMModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<ABMModel | null>(null);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
@@ -216,10 +218,20 @@ export const ABMProvider: React.FC<{children: React.ReactNode}> = ({ children })
   
   // Load models, simulations, and theories on mount
   useEffect(() => {
-    fetchModels();
-    fetchSimulations();
-    fetchTheories();
-  }, [fetchModels, fetchSimulations, fetchTheories]);
+    if (isAuthenticated) {
+      fetchModels();
+      fetchSimulations();
+      fetchTheories();
+    } else {
+      // Clear ABM data if not authenticated
+      setModels([]);
+      setSelectedModel(null);
+      setSimulations([]);
+      setSelectedSimulation(null);
+      setSimulationResults(null);
+      setTheories([]);
+    }
+  }, [fetchModels, fetchSimulations, fetchTheories, isAuthenticated]);
   
   return (
     <ABMContext.Provider

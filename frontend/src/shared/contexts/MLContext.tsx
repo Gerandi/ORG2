@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { MLModel, Algorithm, FeatureImportance, PredictionResult, TrainingOptions } from '../../types/ml';
 import { mlService } from '../services';
+import { useAuthContext } from './AuthContext';
 
 interface MLContextProps {
   models: MLModel[];
@@ -23,6 +24,7 @@ interface MLContextProps {
 const MLContext = createContext<MLContextProps | undefined>(undefined);
 
 export const MLProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+  const { isAuthenticated } = useAuthContext();
   const [models, setModels] = useState<MLModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<MLModel | null>(null);
   const [algorithms, setAlgorithms] = useState<Algorithm[]>([]);
@@ -182,9 +184,17 @@ export const MLProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
   
   // Load models and algorithms on mount
   useEffect(() => {
-    fetchModels();
-    fetchAlgorithms();
-  }, [fetchModels, fetchAlgorithms]);
+    if (isAuthenticated) {
+      fetchModels();
+      fetchAlgorithms();
+    } else {
+      // Clear ML data if not authenticated
+      setModels([]);
+      setSelectedModel(null);
+      setAlgorithms([]);
+      setFeatureImportance(null);
+    }
+  }, [fetchModels, fetchAlgorithms, isAuthenticated]);
   
   return (
     <MLContext.Provider

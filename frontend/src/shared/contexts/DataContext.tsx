@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Dataset, ProcessingOptions, AnonymizationOptions } from '../../types/data';
 import { dataService } from '../services';
+import { useAuthContext } from './AuthContext';
 
 interface DataContextProps {
   datasets: Dataset[];
@@ -20,6 +21,7 @@ interface DataContextProps {
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
 export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+  const { isAuthenticated } = useAuthContext();
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -161,17 +163,15 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   }, []);
   
-  // Only load datasets if user is authenticated
   useEffect(() => {
-    // Check if user is authenticated before fetching datasets
-    const token = localStorage.getItem('access_token');
-    if (token) {
+    if (isAuthenticated) {
       fetchDatasets();
     } else {
-      // If no token, ensure datasets are empty
+      // Clear data if not authenticated
       setDatasets([]);
+      setSelectedDataset(null);
     }
-  }, [fetchDatasets]);
+  }, [fetchDatasets, isAuthenticated]);
   
   return (
     <DataContext.Provider

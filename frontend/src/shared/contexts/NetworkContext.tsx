@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { NetworkModel, NetworkData, NetworkMetrics, Communities, VisualizationOptions } from '../../types/network';
 import { networkService } from '../services';
+import { useAuthContext } from './AuthContext';
 
 interface NetworkContextProps {
   networks: NetworkModel[];
@@ -51,6 +52,7 @@ const defaultVisualizationOptions: VisualizationOptions = {
 const NetworkContext = createContext<NetworkContextProps | undefined>(undefined);
 
 export const NetworkProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+  const { isAuthenticated } = useAuthContext();
   const [networks, setNetworks] = useState<NetworkModel[]>([]);
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkModel | null>(null);
   const [networkData, setNetworkData] = useState<NetworkData | null>(null);
@@ -235,8 +237,17 @@ export const NetworkProvider: React.FC<{children: React.ReactNode}> = ({ childre
   
   // Load networks on mount
   useEffect(() => {
-    fetchNetworks();
-  }, [fetchNetworks]);
+    if (isAuthenticated) {
+      fetchNetworks();
+    } else {
+      // Clear networks if not authenticated
+      setNetworks([]);
+      setSelectedNetwork(null);
+      setNetworkData(null);
+      setNetworkMetrics(null);
+      setCommunities(null);
+    }
+  }, [fetchNetworks, isAuthenticated]);
   
   return (
     <NetworkContext.Provider
