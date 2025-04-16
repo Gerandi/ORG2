@@ -1,7 +1,7 @@
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Set, List
 
 from fastapi import Depends, Request, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -18,6 +18,13 @@ from pydantic import EmailStr
 
 from app.core.database import get_user_db
 from app.models.user import User
+
+# Token blacklist for logout security
+# In a production environment, this would be stored in Redis or a database
+# For simplicity, we'll use an in-memory set with token jti (JWT ID) values
+TOKEN_BLACKLIST: Set[str] = set()
+# Maintain a mapping of user_id to refresh tokens for invalidation on logout
+USER_REFRESH_TOKENS: Dict[str, List[str]] = {}
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -109,8 +116,26 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     expire = datetime.utcnow() + (
         expires_delta if expires_delta else timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    to_encode.update({"exp": expire, "type": "access"})
+    
+    # Generate a unique token ID (jti) for token blacklisting
+    jti = str(uuid.uuid4())
+    
+    # Update token with expiration, type, and jti
+    to_encode.update({
+        "exp": expire, 
+        "type": "access",
+        "jti": jti,
+        "iat": datetime.utcnow()  # Issued at time
+    })
+    
     encoded_jwt = jwt.encode(to_encode, SECRET, algorithm=ALGORITHM)
+    
+    # Store the user's token for invalidation on logout
+    user_id = data.get("sub")
+    if user_id:
+        if user_id not in USER_REFRESH_TOKENS:
+            USER_REFRESH_TOKENS[user_id] = []
+    
     return encoded_jwt
 
 
@@ -129,8 +154,27 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
     expire = datetime.utcnow() + (
         expires_delta if expires_delta else timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
     )
-    to_encode.update({"exp": expire, "type": "refresh"})
+    
+    # Generate a unique token ID (jti) for token blacklisting
+    jti = str(uuid.uuid4())
+    
+    # Update token with expiration, type, and jti
+    to_encode.update({
+        "exp": expire, 
+        "type": "refresh",
+        "jti": jti,
+        "iat": datetime.utcnow()  # Issued at time
+    })
+    
     encoded_jwt = jwt.encode(to_encode, SECRET, algorithm=ALGORITHM)
+    
+    # Store the user's refresh token for invalidation on logout
+    user_id = data.get("sub")
+    if user_id:
+        if user_id not in USER_REFRESH_TOKENS:
+            USER_REFRESH_TOKENS[user_id] = []
+        USER_REFRESH_TOKENS[user_id].append(jti)
+    
     return encoded_jwt
 
 
@@ -155,25 +199,31 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     
     try:
         payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        token_type: str = payload.get("type")
+        user_id = payload.get("sub")
+        token_type = payload.get("type")
+        token_jti = payload.get("jti")
         
         if user_id is None or token_type != "access":
             raise credentials_exception
             
-        # In a real implementation, get the user from the database
-        # For now, just return a dummy user
-        # TODO: Implement actual user lookup from database
+        # Check if the token is blacklisted
+        if token_jti and token_jti in TOKEN_BLACKLIST:
+            raise credentials_exception
         
-    except jwt.PyJWTError:
+        # Get the user manager to retrieve the user
+        user_manager_gen = fastapi_users.get_user_manager()
+        user_manager = await anext(user_manager_gen)
+        
+        # Get the user from the database
+        user = await user_manager.get(user_id)
+        
+        if user is None or not user.is_active:
+            raise credentials_exception
+            
+        return user
+            
+    except (jwt.PyJWTError, ValueError):
         raise credentials_exception
-        
-    # If we had a user object, we'd return it here
-    # For now, just raise an exception as this isn't fully implemented
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Full JWT user lookup not implemented yet"
-    )
 
 
 auth_backend = AuthenticationBackend(

@@ -10,6 +10,12 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // Helper function to use admin account
+  const useAdminAccount = () => {
+    setUsername('admin@orgai.com');
+    setPassword('admin123');
+  };
   
   const { login, isLoading, error } = useAuth();
   const navigate = useNavigate();
@@ -17,6 +23,17 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
+    
+    // Basic field validation
+    if (!username.trim()) {
+      setLocalError('Username is required');
+      return;
+    }
+    
+    if (!password.trim()) {
+      setLocalError('Password is required');
+      return;
+    }
     
     try {
       console.log('Login attempt with username:', username);
@@ -26,16 +43,35 @@ const Login: React.FC = () => {
         console.log('Login successful, navigating to dashboard');
         navigate('/dashboard');
       } else {
-        setLocalError('Failed to login. Please try again.');
+        setLocalError('Invalid username or password. Please try again.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
-      setLocalError('An unexpected error occurred during login.');
+      
+      // Extract error message from different formats
+      if (err.response?.data?.detail) {
+        if (typeof err.response.data.detail === 'string') {
+          setLocalError(err.response.data.detail);
+        } else if (Array.isArray(err.response.data.detail)) {
+          setLocalError(err.response.data.detail.join(', '));
+        } else {
+          setLocalError(JSON.stringify(err.response.data.detail));
+        }
+      } else if (err.message) {
+        setLocalError(err.message);
+      } else {
+        setLocalError('Authentication failed. Please try again.');
+      }
     }
   };
   
   // Determine error message to display
-  const displayError = error || localError;
+  // Format error message more user-friendly if it's a technical error
+  let displayError = error || localError;
+  
+  if (displayError && displayError.includes('Network Error')) {
+    displayError = 'Unable to connect to the server. Please ensure the backend is running.';
+  }
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -99,16 +135,28 @@ const Login: React.FC = () => {
               />
             </div>
             
-            <Button 
-              type="submit" 
-              variant="primary" 
-              isLoading={isLoading}
-              disabled={isLoading} 
-              fullWidth
-              className="mb-4"
-            >
-              {isLoading ? 'Signing in...' : 'Sign in'}
-            </Button>
+            <div className="space-y-3">
+              <Button 
+                type="submit" 
+                variant="primary" 
+                isLoading={isLoading}
+                disabled={isLoading} 
+                fullWidth
+              >
+                {isLoading ? 'Signing in...' : 'Sign in'}
+              </Button>
+              
+              <Button 
+                type="button" 
+                variant="secondary" 
+                disabled={isLoading} 
+                onClick={useAdminAccount}
+                fullWidth
+                className="mb-4"
+              >
+                Use Admin Account
+              </Button>
+            </div>
             
             <div className="text-center">
               <Typography variant="p" className="text-sm text-gray-600">

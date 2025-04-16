@@ -10,3 +10,9 @@ class TokenResponse(BaseModel):
 class RefreshRequest(BaseModel):
     """Schema for refresh token request."""
     refresh_token: str
+    
+class LogoutRequest(BaseModel):
+    """Schema for logout request."""
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    all_devices: bool = False

@@ -71,22 +71,59 @@ const Register: React.FC = () => {
     
     if (validateForm()) {
       try {
-        const success = await register({
+        // Prepare registration data with snake_case fields for backend compatibility
+        const registrationData = {
           email: formData.email,
           username: formData.username,
           password: formData.password,
-          firstName: formData.firstName,  // Use camelCase in frontend
-          lastName: formData.lastName     // The auth service will convert these to snake_case
-        });
+          first_name: formData.firstName,
+          last_name: formData.lastName
+        };
+        
+        console.log('Attempting to register with data:', registrationData);
+        const success = await register(registrationData);
         
         if (success) {
+          console.log('Registration successful, navigating to dashboard');
           navigate('/dashboard');
         } else {
-          setLocalError('Failed to create account. Please try again.');
+          setLocalError('Failed to create account. Please check the form and try again.');
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Registration error:', err);
-        setLocalError('An unexpected error occurred during registration.');
+        
+        // Handle different error response formats
+        if (err.response?.data) {
+          const errorData = err.response.data;
+          
+          if (typeof errorData === 'string') {
+            setLocalError(errorData);
+          } else if (errorData.detail) {
+            if (Array.isArray(errorData.detail)) {
+              // Handle validation errors from Pydantic
+              setLocalError(errorData.detail.map((d: any) => d.msg || d).join(', '));
+            } else {
+              setLocalError(String(errorData.detail));
+            }
+          } else if (errorData.message) {
+            setLocalError(errorData.message);
+          } else {
+            setLocalError(JSON.stringify(errorData));
+          }
+        } else if (err.message) {
+          setLocalError(err.message);
+        } else {
+          setLocalError('Registration failed. Please try again later.');
+        }
+      }
+    } else {
+      // If validateForm() returned false, there should be validation errors
+      // Check if we have any specific validation errors
+      const firstError = Object.values(errors).find(err => !!err);
+      if (firstError) {
+        setLocalError(firstError);
+      } else {
+        setLocalError('Please fix the errors in the form before submitting.');
       }
     }
   };
@@ -103,7 +140,12 @@ const Register: React.FC = () => {
   }, []);
 
   // Determine error message to display
-  const displayError = error || localError;
+  // Format error message more user-friendly if it's a technical error
+  let displayError = error || localError;
+  
+  if (displayError && displayError.includes('Network Error')) {
+    displayError = 'Unable to connect to the server. Please ensure the backend is running.';
+  }
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">

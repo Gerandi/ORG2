@@ -36,12 +36,3 @@ class User(SQLAlchemyBaseUserTable[int], Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
-    
-    # Relationships
-    projects = relationship("Project", back_populates="user")
-    datasets = relationship("Dataset", back_populates="user")
-    networks = relationship("Network", back_populates="user")
-    abm_models = relationship("ABMModel", back_populates="user")
-    abm_simulations = relationship("ABMSimulation", back_populates="user")
-    ml_models = relationship("MLModel", back_populates="user")
-    prepared_data = relationship("PreparedData", back_populates="user")

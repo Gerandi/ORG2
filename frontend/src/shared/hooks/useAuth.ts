@@ -25,11 +25,23 @@ export const useAuth = () => {
     setFormError(null);
     
     try {
-      await login(credentials);
+      console.log('Attempting login with credentials in hook:', credentials);
+      const result = await login(credentials);
+      console.log('Login result:', result);
       return true;
     } catch (error) {
       console.error('Login error:', error);
-      if (error instanceof Error) {
+      
+      // Detailed error logging
+      if (error.response) {
+        console.error('Error response:', error.response.status, error.response.data);
+        
+        if (error.response.data?.detail === "LOGIN_BAD_CREDENTIALS") {
+          setFormError('Invalid username or password. Please try again.');
+        } else if (error.response.data?.detail) {
+          setFormError(error.response.data.detail);
+        }
+      } else if (error instanceof Error) {
         setFormError(error.message);
       } else {
         setFormError('Failed to login. Please check your credentials.');
@@ -97,10 +109,19 @@ export const useAuth = () => {
   }, [register]);
 
   // Handle logout with redirect
-  const handleLogout = useCallback(() => {
-    logout();
-    // Redirect to login page
-    window.location.href = '/login';
+  const handleLogout = useCallback(async (allDevices: boolean = false) => {
+    try {
+      setProcessing(true);
+      await logout(allDevices);
+      // Redirect to login page
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Redirect anyway on error
+      window.location.href = '/login';
+    } finally {
+      setProcessing(false);
+    }
   }, [logout]);
 
   // Handle profile update with error handling

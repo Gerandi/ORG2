@@ -60,10 +60,15 @@ class AuthService {
   
   // Login user
   public async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    // Convert credentials to form data for FastAPI Users compatibility
-    const formData = new FormData();
+    // FastAPI-Users expects x-www-form-urlencoded format for login
+    const formData = new URLSearchParams();
+    // Use standard OAuth2 fields exactly as the Swagger UI uses
+    formData.append('grant_type', 'password');
     formData.append('username', credentials.username);
     formData.append('password', credentials.password);
+    formData.append('scope', '');
+    formData.append('client_id', 'string');
+    formData.append('client_secret', 'string');
     
     console.log('Attempting login with credentials:', credentials.username);
     
@@ -72,10 +77,10 @@ class AuthService {
       try {
         const response = await apiService.post<AuthResponse>(
           `${this.baseUrl}/login/access-refresh-token`, 
-          formData,
+          formData.toString(),
           {
             headers: {
-              'Content-Type': 'multipart/form-data'
+              'Content-Type': 'application/x-www-form-urlencoded'
             }
           }
         );
@@ -97,13 +102,14 @@ class AuthService {
         console.log('Enhanced login endpoint failed, trying standard endpoint', enhancedError);
       }
       
-      // Fall back to regular login
+      // Fall back to regular login - the standard FastAPI-Users endpoint
       const fallbackResponse = await apiService.post<AuthResponse>(
-        `${this.baseUrl}/login`, 
-        formData,
+        `${this.baseUrl}/login`, // Standard login endpoint from fastapi-users
+        formData.toString(),
         {
           headers: {
-            'Content-Type': 'multipart/form-data'
+            'accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded'
           }
         }
       );
@@ -116,13 +122,20 @@ class AuthService {
       return fallbackResponse;
     } catch (error) {
       console.error('Login API error:', error);
+      
+      // Add better error handling for Network Error (CORS issues)
+      if (error.message === 'Network Error') {
+        console.error('Network Error - This may be a CORS issue or the server is not running');
+        error.details = 'Unable to connect to the server. Please ensure the backend is running.';
+      }
+      
       throw error;
     }
   }
   
   // Register user
   public async register(userData: RegisterData): Promise<User> {
-    // Form the complete registration data
+    // Form the complete registration data, using snake_case for backend compatibility
     const registrationData = {
       email: userData.email,
       username: userData.username,
@@ -132,13 +145,13 @@ class AuthService {
       is_verified: false
     };
     
-    // Add optional fields if provided
-    if (userData.first_name) {
-      registrationData["first_name"] = userData.first_name;
+    // Use the snake_case fields for backend compatibility
+    if (userData.first_name || userData.firstName) {
+      registrationData["first_name"] = userData.first_name || userData.firstName;
     }
     
-    if (userData.last_name) {
-      registrationData["last_name"] = userData.last_name;
+    if (userData.last_name || userData.lastName) {
+      registrationData["last_name"] = userData.last_name || userData.lastName;
     }
     
     console.log('Sending registration data:', registrationData);
@@ -156,8 +169,25 @@ class AuthService {
     } catch (error) {
       console.error('Registration failed:', error);
       
-      if (error.response) {
+      if (error.response?.data) {
         console.error('Error response:', error.response.status, error.response.data);
+        
+        // If error contains validation errors from Pydantic, extract them
+        if (error.response.data.detail && Array.isArray(error.response.data.detail)) {
+          const validationErrors = error.response.data.detail.map(err => 
+            `${err.loc.join('.')} - ${err.msg}`
+          ).join('; ');
+          
+          error.message = validationErrors || error.message;
+        } else if (typeof error.response.data === 'string') {
+          error.message = error.response.data;
+        } else if (error.response.data.detail) {
+          error.message = error.response.data.detail;
+        }
+      } else if (error.message === 'Network Error') {
+        // Add more descriptive information for CORS issues
+        console.error('Network Error - This may be a CORS issue or the server is not running');
+        error.message = 'Unable to connect to the server. Please ensure the backend is running.';
       }
       
       // Re-throw for proper error handling up the chain
@@ -166,9 +196,26 @@ class AuthService {
   }
   
   // Logout user
-  public logout(): void {
+  public async logout(allDevices: boolean = false): Promise<void> {
+    // Get the tokens before removing them
+    const accessToken = localStorage.getItem(this.tokenKey);
+    const refreshToken = localStorage.getItem(this.refreshTokenKey);
+    
+    // Remove tokens from localStorage
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.refreshTokenKey);
+    
+    // Call the logout API to blacklist the tokens
+    try {
+      await apiService.post(`${this.baseUrl}/logout`, {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        all_devices: allDevices
+      });
+    } catch (error) {
+      console.error('Error logging out:', error);
+      // Even if the API call fails, we've already removed tokens from localStorage
+    }
   }
   
   // Get current user

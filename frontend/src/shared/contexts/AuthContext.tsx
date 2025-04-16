@@ -8,8 +8,8 @@ interface AuthContextProps {
   isLoading: boolean;
   error: string | null;
   login: (credentials: LoginCredentials) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
-  logout: () => void;
+  register: (data: RegisterData) => Promise<boolean>;
+  logout: (allDevices?: boolean) => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   checkAuth: () => Promise<void>;
 }
@@ -48,16 +48,26 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       const registeredUser = await authService.register(data);
       console.log('AuthContext: Registration successful:', registeredUser);
       
+      // Wait a moment for the database to update properly
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       try {
         console.log('AuthContext: Attempting login after registration');
         // Automatically log in after registration
         await login({ username: data.username, password: data.password });
         return true;
-      } catch (loginErr) {
+      } catch (loginErr: any) {
         console.error('AuthContext: Auto-login after registration failed:', loginErr);
-        // Even if login fails, registration was successful
-        setError('Registration successful, but automatic login failed. Please try logging in manually.');
-        return true;
+        
+        // Provide detailed error for login failure
+        if (loginErr.response?.data?.detail) {
+          setError(`Registration successful, but automatic login failed: ${loginErr.response.data.detail}`);
+        } else if (loginErr.message) {
+          setError(`Registration successful, but automatic login failed: ${loginErr.message}`);
+        } else {
+          setError('Registration successful, but automatic login failed. Please try logging in manually.');
+        }
+        return false;
       }
     } catch (err: any) {
       console.error('AuthContext: Registration error details:', err);
@@ -75,6 +85,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           } else {
             setError(String(errorData.detail));
           }
+        } else if (errorData.message) {
+          setError(errorData.message);
         } else {
           setError(JSON.stringify(errorData));
         }
@@ -91,10 +103,17 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   }, [login]);
   
-  const logout = useCallback((): void => {
-    authService.logout();
-    setUser(null);
-    setIsAuthenticated(false);
+  const logout = useCallback(async (allDevices: boolean = false): Promise<void> => {
+    try {
+      await authService.logout(allDevices);
+      setUser(null);
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Even if API call fails, consider user logged out on the frontend
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   }, []);
   
   const updateProfile = useCallback(async (data: Partial<User>): Promise<void> => {
