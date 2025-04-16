@@ -20,7 +20,7 @@ const Register: React.FC = () => {
     validateForm,
     setFieldValue,
     isValid,
-    setTouched
+    handleBlur
   } = useFormValidation(
     {
       email: '',
@@ -65,25 +65,9 @@ const Register: React.FC = () => {
     }
   );
   
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const { name } = e.target;
-    setTouched(prev => ({
-      ...prev,
-      [name]: true
-    }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
-    
-    // Mark all fields as touched
-    const allTouched = Object.keys(formData).reduce((acc, key) => {
-      acc[key as keyof typeof formData] = true;
-      return acc;
-    }, {} as Record<keyof typeof formData, boolean>);
-    
-    setTouched(allTouched);
     
     if (validateForm()) {
       try {

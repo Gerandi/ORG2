@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
 from app.services.network_analysis import NetworkAnalysisService
-from app.models.dataset import Dataset
+from app.models.models import Dataset
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

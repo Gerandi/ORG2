@@ -13,7 +13,7 @@ from datetime import datetime
 import uuid
 import logging
 
-from app.models.dataset import Dataset
+from app.models.models import Dataset # Corrected import path
 from app.services.network_analysis import NetworkAnalysisService
 from app.schemas.data import ProcessingOptions, AnonymizationOptions
 

@@ -22,7 +22,7 @@ class AuthService {
   
   private setupTokenRefresh() {
     // Add an axios interceptor to catch 401 errors and attempt token refresh
-    apiService.api.interceptors.response.use(
+    apiService.interceptors.response.use(
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
@@ -145,7 +145,7 @@ class AuthService {
     
     try {
       // Direct API call to avoid interceptors that might add Authorization headers
-      const response = await apiService.api.post(`${this.baseUrl}/register`, registrationData, {
+      const response = await apiService.post<User>(`${this.baseUrl}/register`, registrationData, {
         headers: {
           'Content-Type': 'application/json'
         }

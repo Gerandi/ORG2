@@ -116,7 +116,7 @@ class Dataset(Base):
     # Relationships with other models
     networks = relationship("Network", back_populates="dataset", cascade="all, delete-orphan")
     prepared_data = relationship("PreparedData", back_populates="dataset", cascade="all, delete-orphan")
-    ml_models = relationship("MLModel", secondary=dataset_mlmodel, back_populates="ml_models")
+    ml_models = relationship("MLModel", secondary=dataset_mlmodel, back_populates="datasets")
 
 
 class Network(Base):
