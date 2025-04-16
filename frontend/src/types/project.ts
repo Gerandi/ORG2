@@ -1,0 +1,12 @@
+export type ProjectType = 'SNA' | 'ML' | 'ABM' | 'GENERAL';
+export type ProjectStatus = 'active' | 'archived' | 'completed' | 'draft';
+
+export interface Project {
+  id: number;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  type: ProjectType;
+  status: ProjectStatus;
+}
