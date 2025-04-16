@@ -1,13 +1,18 @@
 from fastapi import APIRouter, HTTPException, status, Depends, File, UploadFile, Form, Query
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 import networkx as nx
 import json
+import os
+import uuid
+import shutil
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import delete, update
 
 from app.core.database import get_async_session
 from app.auth.authentication import current_active_user
-from app.models.user import User
+from app.models.models import Network, Dataset, User
+from app.schemas.network import NetworkCreate, NetworkUpdate, Network as NetworkSchema, NetworkData
 from app.services.network_analysis import NetworkAnalysisService
 from app.services.data_service import DataService
 
@@ -17,29 +22,50 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-# Network model storage (in-memory for MVP)
-# In a real application, this would be stored in a database
-NETWORK_MODELS = []
-NETWORK_ID_COUNTER = 1
-
-@router.get("/", response_model=List[Dict[str, Any]])
-async def get_networks():
+@router.get("/", response_model=List[NetworkSchema])
+async def get_networks(
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Retrieve all network models.
     """
-    return NETWORK_MODELS
+    # Implement authorization filter
+    if user.is_superuser:
+        query = select(Network)
+    else:
+        query = select(Network).where(Network.user_id == user.id)
+    
+    result = await db.execute(query)
+    networks = result.scalars().all()
+    
+    return networks
 
-@router.get("/{network_id}", response_model=Dict[str, Any])
-async def get_network(network_id: int):
+@router.get("/{network_id}", response_model=NetworkSchema)
+async def get_network(
+    network_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Retrieve a specific network model by ID.
     """
-    for network in NETWORK_MODELS:
-        if network["id"] == network_id:
-            return network
-    raise HTTPException(status_code=404, detail="Network not found")
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    network = result.scalar_one_or_none()
+    
+    # Check if network exists
+    if network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    return network
 
-@router.post("/", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=NetworkSchema, status_code=status.HTTP_201_CREATED)
 async def create_network(
     dataset_id: int = Form(...),
     name: str = Form(...),
@@ -55,36 +81,18 @@ async def create_network(
     """
     Create a new network model from a dataset.
     """
-    global NETWORK_ID_COUNTER
-    
     try:
         # Get the dataset
         dataset = await DataService.get_dataset(db, dataset_id)
         if not dataset:
-            raise HTTPException(status_code=404, detail="Dataset not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
+        
+        # Check dataset authorization
+        if dataset.user_id != user.id and not user.is_superuser:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this dataset")
         
         # Determine file path to use
         file_path = dataset.anonymized_file_path or dataset.processed_file_path or dataset.file_path
-        
-        # Create network data dictionary
-        network_data = {
-            "id": NETWORK_ID_COUNTER,
-            "name": name,
-            "description": description or f"Network created from dataset: {dataset.name}",
-            "dataset_id": dataset_id,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
-            "directed": directed,
-            "weighted": weighted,
-            "user_id": user.id,
-            "file_path": file_path,
-            "attributes": {
-                "source_col": source_col,
-                "target_col": target_col,
-                "weight_col": weight_col,
-                "dataset_name": dataset.name
-            }
-        }
         
         # If the dataset is already a network file, we can use it directly
         if dataset.type == "NETWORK":
@@ -175,79 +183,158 @@ async def create_network(
                     # Apply attributes to nodes
                     nx.set_node_attributes(G, node_dict, column)
         
-        # Calculate basic network metrics
-        network_data["node_count"] = G.number_of_nodes()
-        network_data["edge_count"] = G.number_of_edges()
-        
-        # Calculate more detailed metrics
+        # Calculate metrics using NetworkAnalysisService
         metrics = NetworkAnalysisService.calculate_network_metrics(G)
-        network_data["metrics"] = metrics["global_metrics"]
         
-        # Add the network to our storage
-        NETWORK_MODELS.append(network_data)
-        NETWORK_ID_COUNTER += 1
+        # Define a persistent save path for the network
+        network_uuid = str(uuid.uuid4())
+        network_folder = os.path.join("networks", network_uuid)
+        os.makedirs(network_folder, exist_ok=True)
+        saved_graph_path = os.path.join(network_folder, "network.graphml")
         
-        return network_data
+        # Save the graph
+        nx.write_graphml(G, saved_graph_path)
+        
+        # Create new Network instance
+        new_network = Network(
+            name=name,
+            description=description or f"Network created from dataset: {dataset.name}",
+            directed=G.is_directed(),
+            weighted=weighted,
+            user_id=user.id,
+            dataset_id=dataset_id,
+            file_path=saved_graph_path,
+            metrics=metrics["global_metrics"],
+            node_count=G.number_of_nodes(),
+            edge_count=G.number_of_edges(),
+            attributes={
+                "source_col": source_col,
+                "target_col": target_col,
+                "weight_col": weight_col,
+                "dataset_name": dataset.name
+            }
+        )
+        
+        # Save to database
+        db.add(new_network)
+        await db.commit()
+        await db.refresh(new_network)
+        
+        return new_network
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating network: {str(e)}")
 
-@router.put("/{network_id}", response_model=Dict[str, Any])
-async def update_network(network_id: int, network_update: Dict[str, Any]):
+@router.put("/{network_id}", response_model=NetworkSchema)
+async def update_network(
+    network_id: int,
+    network_update: NetworkUpdate,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Update an existing network model metadata.
     """
-    for i, network in enumerate(NETWORK_MODELS):
-        if network["id"] == network_id:
-            # Update network, but don't allow modifying id, created_at
-            NETWORK_MODELS[i] = {
-                **network,
-                **{k: v for k, v in network_update.items() if k not in ["id", "created_at"]},
-                "updated_at": datetime.now().isoformat()
-            }
-            return NETWORK_MODELS[i]
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    network = result.scalar_one_or_none()
     
-    raise HTTPException(status_code=404, detail="Network not found")
+    # Check if network exists
+    if network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    # Update network attributes
+    update_data = network_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(network, key, value)
+    
+    # Commit changes
+    await db.commit()
+    await db.refresh(network)
+    
+    return network
 
 @router.delete("/{network_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_network(network_id: int):
+async def delete_network(
+    network_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Delete a network model.
     """
-    for i, network in enumerate(NETWORK_MODELS):
-        if network["id"] == network_id:
-            NETWORK_MODELS.pop(i)
-            return
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    network = result.scalar_one_or_none()
     
-    raise HTTPException(status_code=404, detail="Network not found")
+    # Check if network exists
+    if network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    # Delete the file at network.file_path if it exists
+    if network.file_path and os.path.exists(network.file_path):
+        try:
+            # If it's a single file
+            os.remove(network.file_path)
+            
+            # Also try to remove the parent folder if it's in our networks directory
+            folder_path = os.path.dirname(network.file_path)
+            if os.path.basename(os.path.dirname(folder_path)) == "networks":
+                shutil.rmtree(folder_path, ignore_errors=True)
+        except Exception:
+            # If there's an error removing files, just log it and continue with deletion
+            print(f"Error removing files for network {network_id}")
+    
+    # Delete from database
+    await db.execute(delete(Network).where(Network.id == network_id))
+    await db.commit()
+    
+    return None
 
 @router.get("/{network_id}/metrics", response_model=Dict[str, Any])
-async def get_network_metrics(network_id: int):
+async def get_network_metrics(
+    network_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Get metrics for a specific network.
     """
-    # Find the network
-    network = None
-    for n in NETWORK_MODELS:
-        if n["id"] == network_id:
-            network = n
-            break
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    db_network = result.scalar_one_or_none()
     
-    if not network:
-        raise HTTPException(status_code=404, detail="Network not found")
+    # Check if network exists
+    if db_network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if db_network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
     # Return metrics if already calculated
-    if "metrics" in network:
+    if db_network.metrics:
         return {
             "network_id": network_id,
-            "global_metrics": network["metrics"],
+            "global_metrics": db_network.metrics,
             "node_metrics": {}  # In a real implementation, we would retrieve node metrics
         }
     
     # Otherwise, calculate metrics now
     try:
         # Load the network from file
-        file_path = network.get("file_path")
+        file_path = db_network.file_path
         if not file_path:
             raise HTTPException(status_code=400, detail="Network file path not found")
         
@@ -265,10 +352,9 @@ async def get_network_metrics(network_id: int):
         metrics = NetworkAnalysisService.calculate_network_metrics(G)
         
         # Update network with metrics
-        for i, n in enumerate(NETWORK_MODELS):
-            if n["id"] == network_id:
-                NETWORK_MODELS[i]["metrics"] = metrics["global_metrics"]
-                break
+        db_network.metrics = metrics["global_metrics"]
+        await db.commit()
+        await db.refresh(db_network)
         
         return {
             "network_id": network_id,
@@ -280,23 +366,31 @@ async def get_network_metrics(network_id: int):
         raise HTTPException(status_code=500, detail=f"Error calculating network metrics: {str(e)}")
 
 @router.post("/{network_id}/metrics/calculate", response_model=Dict[str, Any])
-async def calculate_network_metrics(network_id: int, metrics: List[str] = []):
+async def calculate_network_metrics(
+    network_id: int,
+    metrics: List[str] = [],
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Calculate specified metrics for a network.
     """
-    # Find the network
-    network = None
-    for n in NETWORK_MODELS:
-        if n["id"] == network_id:
-            network = n
-            break
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    db_network = result.scalar_one_or_none()
     
-    if not network:
-        raise HTTPException(status_code=404, detail="Network not found")
+    # Check if network exists
+    if db_network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if db_network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
     try:
         # Load the network from file
-        file_path = network.get("file_path")
+        file_path = db_network.file_path
         if not file_path:
             raise HTTPException(status_code=400, detail="Network file path not found")
         
@@ -314,10 +408,9 @@ async def calculate_network_metrics(network_id: int, metrics: List[str] = []):
         calculated_metrics = NetworkAnalysisService.calculate_network_metrics(G)
         
         # Update network with metrics
-        for i, n in enumerate(NETWORK_MODELS):
-            if n["id"] == network_id:
-                NETWORK_MODELS[i]["metrics"] = calculated_metrics["global_metrics"]
-                break
+        db_network.metrics = calculated_metrics["global_metrics"]
+        await db.commit()
+        await db.refresh(db_network)
         
         return {
             "network_id": network_id,
@@ -329,28 +422,35 @@ async def calculate_network_metrics(network_id: int, metrics: List[str] = []):
         raise HTTPException(status_code=500, detail=f"Error calculating network metrics: {str(e)}")
 
 @router.get("/{network_id}/communities", response_model=Dict[str, Any])
-async def get_network_communities(network_id: int):
+async def get_network_communities(
+    network_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Get community detection results for a specific network.
     """
-    # Find the network
-    network = None
-    for n in NETWORK_MODELS:
-        if n["id"] == network_id:
-            network = n
-            break
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    db_network = result.scalar_one_or_none()
     
-    if not network:
-        raise HTTPException(status_code=404, detail="Network not found")
+    # Check if network exists
+    if db_network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if db_network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
     # Check if communities are already calculated
-    if "communities" in network:
-        return network["communities"]
+    if db_network.communities:
+        return db_network.communities
     
     # Otherwise, calculate communities now
     try:
         # Load the network from file
-        file_path = network.get("file_path")
+        file_path = db_network.file_path
         if not file_path:
             raise HTTPException(status_code=400, detail="Network file path not found")
         
@@ -368,10 +468,9 @@ async def get_network_communities(network_id: int):
         communities = NetworkAnalysisService.detect_communities(G, algorithm="louvain")
         
         # Update network with communities
-        for i, n in enumerate(NETWORK_MODELS):
-            if n["id"] == network_id:
-                NETWORK_MODELS[i]["communities"] = communities
-                break
+        db_network.communities = communities
+        await db.commit()
+        await db.refresh(db_network)
         
         return communities
     
@@ -379,23 +478,31 @@ async def get_network_communities(network_id: int):
         raise HTTPException(status_code=500, detail=f"Error detecting communities: {str(e)}")
 
 @router.post("/{network_id}/communities/detect", response_model=Dict[str, Any])
-async def detect_communities(network_id: int, algorithm: str = "louvain"):
+async def detect_communities(
+    network_id: int,
+    algorithm: str = "louvain",
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Detect communities in a network using the specified algorithm.
     """
-    # Find the network
-    network = None
-    for n in NETWORK_MODELS:
-        if n["id"] == network_id:
-            network = n
-            break
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    db_network = result.scalar_one_or_none()
     
-    if not network:
-        raise HTTPException(status_code=404, detail="Network not found")
+    # Check if network exists
+    if db_network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if db_network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
     try:
         # Load the network from file
-        file_path = network.get("file_path")
+        file_path = db_network.file_path
         if not file_path:
             raise HTTPException(status_code=400, detail="Network file path not found")
         
@@ -413,10 +520,9 @@ async def detect_communities(network_id: int, algorithm: str = "louvain"):
         communities = NetworkAnalysisService.detect_communities(G, algorithm=algorithm)
         
         # Update network with communities
-        for i, n in enumerate(NETWORK_MODELS):
-            if n["id"] == network_id:
-                NETWORK_MODELS[i]["communities"] = communities
-                break
+        db_network.communities = communities
+        await db.commit()
+        await db.refresh(db_network)
         
         return communities
     
@@ -424,23 +530,32 @@ async def detect_communities(network_id: int, algorithm: str = "louvain"):
         raise HTTPException(status_code=500, detail=f"Error detecting communities: {str(e)}")
 
 @router.post("/{network_id}/link-prediction", response_model=List[Dict[str, Any]])
-async def predict_links(network_id: int, method: str = "common_neighbors", k: int = 10):
+async def predict_links(
+    network_id: int,
+    method: str = "common_neighbors",
+    k: int = 10,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Predict potential new links in the network.
     """
-    # Find the network
-    network = None
-    for n in NETWORK_MODELS:
-        if n["id"] == network_id:
-            network = n
-            break
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    db_network = result.scalar_one_or_none()
     
-    if not network:
-        raise HTTPException(status_code=404, detail="Network not found")
+    # Check if network exists
+    if db_network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if db_network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
     try:
         # Load the network from file
-        file_path = network.get("file_path")
+        file_path = db_network.file_path
         if not file_path:
             raise HTTPException(status_code=400, detail="Network file path not found")
         
@@ -472,23 +587,30 @@ async def predict_links(network_id: int, method: str = "common_neighbors", k: in
         raise HTTPException(status_code=500, detail=f"Error predicting links: {str(e)}")
 
 @router.get("/{network_id}/data", response_model=Dict[str, Any])
-async def get_network_data(network_id: int):
+async def get_network_data(
+    network_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Get the actual network data (nodes and edges) for visualization.
     """
-    # Find the network
-    network = None
-    for n in NETWORK_MODELS:
-        if n["id"] == network_id:
-            network = n
-            break
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    db_network = result.scalar_one_or_none()
     
-    if not network:
-        raise HTTPException(status_code=404, detail="Network not found")
+    # Check if network exists
+    if db_network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if db_network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
     try:
         # Load the network from file
-        file_path = network.get("file_path")
+        file_path = db_network.file_path
         if not file_path:
             raise HTTPException(status_code=400, detail="Network file path not found")
         
@@ -506,14 +628,14 @@ async def get_network_data(network_id: int):
         vis_data = NetworkAnalysisService.prepare_network_for_visualization(
             G, 
             layout="force",
-            node_size_attr="degree" if "degree" in G.nodes(data=True)[0][1] else None
+            node_size_attr="degree" if "degree" in list(G.nodes(data=True))[0][1] else None
         )
         
         # Add network metadata
         vis_data["network_id"] = network_id
-        vis_data["name"] = network["name"]
-        vis_data["directed"] = network["directed"]
-        vis_data["weighted"] = network["weighted"]
+        vis_data["name"] = db_network.name
+        vis_data["directed"] = db_network.directed
+        vis_data["weighted"] = db_network.weighted
         
         return vis_data
     
@@ -521,23 +643,31 @@ async def get_network_data(network_id: int):
         raise HTTPException(status_code=500, detail=f"Error preparing network data: {str(e)}")
 
 @router.post("/{network_id}/export", response_model=Dict[str, Any])
-async def export_network(network_id: int, formats: List[str] = ["graphml", "gexf", "json"]):
+async def export_network(
+    network_id: int,
+    formats: List[str] = ["graphml", "gexf", "json"],
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Export the network to various file formats.
     """
-    # Find the network
-    network = None
-    for n in NETWORK_MODELS:
-        if n["id"] == network_id:
-            network = n
-            break
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    db_network = result.scalar_one_or_none()
     
-    if not network:
-        raise HTTPException(status_code=404, detail="Network not found")
+    # Check if network exists
+    if db_network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if db_network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
     try:
         # Load the network from file
-        file_path = network.get("file_path")
+        file_path = db_network.file_path
         if not file_path:
             raise HTTPException(status_code=400, detail="Network file path not found")
         
@@ -563,23 +693,31 @@ async def export_network(network_id: int, formats: List[str] = ["graphml", "gexf
         raise HTTPException(status_code=500, detail=f"Error exporting network: {str(e)}")
 
 @router.post("/{network_id}/homophily", response_model=Dict[str, Any])
-async def calculate_homophily(network_id: int, attribute: str):
+async def calculate_homophily(
+    network_id: int,
+    attribute: str,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Calculate homophily metrics for a given node attribute.
     """
-    # Find the network
-    network = None
-    for n in NETWORK_MODELS:
-        if n["id"] == network_id:
-            network = n
-            break
+    # Fetch network from database
+    query = select(Network).where(Network.id == network_id)
+    result = await db.execute(query)
+    db_network = result.scalar_one_or_none()
     
-    if not network:
-        raise HTTPException(status_code=404, detail="Network not found")
+    # Check if network exists
+    if db_network is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+    
+    # Check authorization
+    if db_network.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
     try:
         # Load the network from file
-        file_path = network.get("file_path")
+        file_path = db_network.file_path
         if not file_path:
             raise HTTPException(status_code=400, detail="Network file path not found")
         
@@ -605,20 +743,19 @@ async def calculate_homophily(network_id: int, attribute: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calculating homophily: {str(e)}")
 
-@router.post("/upload", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
+@router.post("/upload", response_model=NetworkSchema, status_code=status.HTTP_201_CREATED)
 async def upload_network_file(
     name: str = Form(...),
     description: Optional[str] = Form(None),
     directed: bool = Form(False),
     weighted: bool = Form(False),
     file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
     """
     Upload a network file (GraphML, GEXF, GML) directly.
     """
-    global NETWORK_ID_COUNTER
-    
     try:
         # Check file extension
         filename = file.filename.lower()
@@ -633,7 +770,6 @@ async def upload_network_file(
         
         # Create a temporary file to load the network
         import tempfile
-        import os
         
         with tempfile.NamedTemporaryFile(delete=False) as temp:
             temp.write(content)
@@ -654,51 +790,48 @@ async def upload_network_file(
             elif not directed and G.is_directed():
                 G = nx.Graph(G)
             
-            # Save to a permanent location
-            import uuid
-            network_id = str(uuid.uuid4())
-            os.makedirs("networks", exist_ok=True)
-            network_dir = os.path.join("networks", network_id)
-            os.makedirs(network_dir, exist_ok=True)
+            # Define persistent save path
+            network_uuid = str(uuid.uuid4())
+            network_folder = os.path.join("networks", network_uuid)
+            os.makedirs(network_folder, exist_ok=True)
+            saved_graph_path = os.path.join(network_folder, filename)
             
+            # Save the graph
             if filename.endswith(".graphml"):
-                file_path = os.path.join(network_dir, "network.graphml")
-                nx.write_graphml(G, file_path)
+                nx.write_graphml(G, saved_graph_path)
             elif filename.endswith(".gexf"):
-                file_path = os.path.join(network_dir, "network.gexf")
-                nx.write_gexf(G, file_path)
+                nx.write_gexf(G, saved_graph_path)
             elif filename.endswith(".gml"):
-                file_path = os.path.join(network_dir, "network.gml")
-                nx.write_gml(G, file_path)
+                nx.write_gml(G, saved_graph_path)
             
             # Calculate basic network metrics
             metrics = NetworkAnalysisService.calculate_network_metrics(G)
             
             # Create network record
-            network_data = {
-                "id": NETWORK_ID_COUNTER,
-                "name": name,
-                "description": description or f"Uploaded network file: {filename}",
-                "dataset_id": None,
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat(),
-                "directed": G.is_directed(),
-                "weighted": weighted,  # This is user-specified
-                "user_id": user.id,
-                "file_path": file_path,
-                "node_count": G.number_of_nodes(),
-                "edge_count": G.number_of_edges(),
-                "metrics": metrics["global_metrics"],
-                "attributes": {
+            new_network = Network(
+                name=name,
+                description=description or f"Uploaded network file: {filename}",
+                dataset_id=None,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+                directed=G.is_directed(),
+                weighted=weighted,
+                user_id=user.id,
+                file_path=saved_graph_path,
+                node_count=G.number_of_nodes(),
+                edge_count=G.number_of_edges(),
+                metrics=metrics["global_metrics"],
+                attributes={
                     "original_filename": filename
                 }
-            }
+            )
             
-            # Store network
-            NETWORK_MODELS.append(network_data)
-            NETWORK_ID_COUNTER += 1
+            # Save to database
+            db.add(new_network)
+            await db.commit()
+            await db.refresh(new_network)
             
-            return network_data
+            return new_network
         
         finally:
             # Clean up temporary file

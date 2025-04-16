@@ -1,12 +1,18 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Query, Body
+from fastapi import APIRouter, HTTPException, status, Depends, Query, Body, Form
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from enum import Enum
+from sqlalchemy.future import select
+from sqlalchemy import delete, update
+import networkx as nx
 import json
+import os
+import uuid
 
 from app.core.database import get_async_session
 from app.auth.authentication import current_active_user
-from app.models.user import User
+from app.models.models import ABMModel, ABMSimulation, Network, User
+from app.schemas.abm import ABMModelCreate, ABMModelUpdate, ABMModel as ABMModelSchema
+from app.schemas.abm import SimulationCreate, SimulationUpdate, Simulation as SimulationSchema
 from app.services.abm_simulation import ABMSimulationService, SimulationType
 
 router = APIRouter(
@@ -15,237 +21,309 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-# ABM model storage (in-memory for MVP)
-# In a real application, this would be stored in a database
-ABM_MODELS = []
-SIMULATIONS = []
-MODEL_ID_COUNTER = 1
-SIMULATION_ID_COUNTER = 1
-
-@router.get("/models", response_model=List[Dict[str, Any]])
-async def get_models():
+@router.get("/models", response_model=List[ABMModelSchema])
+async def get_models(
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Retrieve all ABM models.
     """
-    return ABM_MODELS
+    # Implement authorization filter
+    if user.is_superuser:
+        query = select(ABMModel)
+    else:
+        query = select(ABMModel).where(ABMModel.user_id == user.id)
+    
+    result = await db.execute(query)
+    models = result.scalars().all()
+    
+    return models
 
-@router.get("/models/{model_id}", response_model=Dict[str, Any])
-async def get_model(model_id: int):
+@router.get("/models/{model_id}", response_model=ABMModelSchema)
+async def get_model(
+    model_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Retrieve a specific ABM model by ID.
     """
-    for model in ABM_MODELS:
-        if model["id"] == model_id:
-            return model
-    raise HTTPException(status_code=404, detail="Model not found")
+    # Fetch the model from database
+    query = select(ABMModel).where(ABMModel.id == model_id)
+    result = await db.execute(query)
+    model = result.scalar_one_or_none()
+    
+    # Check if model exists
+    if model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
+    
+    # Check authorization
+    if model.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    return model
 
-@router.post("/models", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
+@router.post("/models", response_model=ABMModelSchema, status_code=status.HTTP_201_CREATED)
 async def create_model(
-    name: str,
-    description: Optional[str] = None,
-    project_id: Optional[int] = None,
-    network_id: Optional[int] = None,
-    simulation_type: str = "social_influence",
-    attributes: Optional[Dict[str, Any]] = None,
+    model_in: ABMModelCreate,
+    db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
     """
     Create a new ABM model.
     """
-    global MODEL_ID_COUNTER
-    
     # Validate simulation type
     try:
-        sim_type = SimulationType(simulation_type)
+        sim_type = SimulationType(model_in.simulation_type)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Invalid simulation type. Must be one of: {', '.join([e.value for e in SimulationType])}"
         )
     
-    # Create model
-    model = {
-        "id": MODEL_ID_COUNTER,
-        "name": name,
-        "description": description or f"ABM model: {name}",
-        "project_id": project_id,
-        "network_id": network_id,
-        "user_id": user.id,
-        "status": "created",
-        "simulation_type": simulation_type,
-        "attributes": attributes or {},
-        "created_at": str(dict(hour=10, minute=30, year=2025, month=4, day=1)),
-        "updated_at": str(dict(hour=10, minute=30, year=2025, month=4, day=1))
-    }
+    # Create new ABMModel instance
+    new_model = ABMModel(
+        name=model_in.name,
+        description=model_in.description or f"ABM model: {model_in.name}",
+        project_id=model_in.project_id,
+        network_id=model_in.network_id,
+        user_id=user.id,
+        status="created",
+        simulation_type=model_in.simulation_type,
+        attributes=model_in.attributes or {}
+    )
     
-    ABM_MODELS.append(model)
-    MODEL_ID_COUNTER += 1
+    # Save to database
+    db.add(new_model)
+    await db.commit()
+    await db.refresh(new_model)
     
-    return model
+    return new_model
 
-@router.put("/models/{model_id}", response_model=Dict[str, Any])
-async def update_model(model_id: int, model_update: Dict[str, Any]):
+@router.put("/models/{model_id}", response_model=ABMModelSchema)
+async def update_model(
+    model_id: int,
+    model_update: ABMModelUpdate,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Update an existing ABM model.
     """
-    for i, model in enumerate(ABM_MODELS):
-        if model["id"] == model_id:
-            # Update model, but don't allow modifying id, created_at
-            ABM_MODELS[i] = {
-                **model,
-                **{k: v for k, v in model_update.items() if k not in ["id", "created_at"]},
-                "updated_at": str(dict(hour=10, minute=30, year=2025, month=4, day=1))
-            }
-            return ABM_MODELS[i]
+    # Fetch the model from database
+    query = select(ABMModel).where(ABMModel.id == model_id)
+    result = await db.execute(query)
+    model = result.scalar_one_or_none()
     
-    raise HTTPException(status_code=404, detail="Model not found")
+    # Check if model exists
+    if model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
+    
+    # Check authorization
+    if model.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    # Update model attributes
+    update_data = model_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(model, key, value)
+    
+    # Commit changes
+    await db.commit()
+    await db.refresh(model)
+    
+    return model
 
 @router.delete("/models/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_model(model_id: int):
+async def delete_model(
+    model_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Delete an ABM model.
     """
-    for i, model in enumerate(ABM_MODELS):
-        if model["id"] == model_id:
-            ABM_MODELS.pop(i)
-            return
+    # Fetch the model from database
+    query = select(ABMModel).where(ABMModel.id == model_id)
+    result = await db.execute(query)
+    model = result.scalar_one_or_none()
     
-    raise HTTPException(status_code=404, detail="Model not found")
+    # Check if model exists
+    if model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
+    
+    # Check authorization
+    if model.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    # Delete the model
+    await db.execute(delete(ABMModel).where(ABMModel.id == model_id))
+    await db.commit()
+    
+    return None
 
-@router.get("/simulations", response_model=List[Dict[str, Any]])
-async def get_simulations():
+@router.get("/simulations", response_model=List[SimulationSchema])
+async def get_simulations(
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Retrieve all ABM simulations.
     """
-    return SIMULATIONS
+    # Implement authorization filter
+    if user.is_superuser:
+        query = select(ABMSimulation)
+    else:
+        query = select(ABMSimulation).where(ABMSimulation.user_id == user.id)
+    
+    result = await db.execute(query)
+    simulations = result.scalars().all()
+    
+    return simulations
 
-@router.get("/simulations/{simulation_id}", response_model=Dict[str, Any])
-async def get_simulation(simulation_id: int):
+@router.get("/simulations/{simulation_id}", response_model=SimulationSchema)
+async def get_simulation(
+    simulation_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Retrieve a specific ABM simulation by ID.
     """
-    # First check in-memory storage
-    for simulation in SIMULATIONS:
-        if simulation["id"] == simulation_id:
-            return simulation
+    # Fetch the simulation from database
+    query = select(ABMSimulation).where(ABMSimulation.id == simulation_id)
+    result = await db.execute(query)
+    simulation = result.scalar_one_or_none()
     
-    # If not found, try to retrieve from ABM service
-    # This would happen for simulations run after server restart
-    try:
-        # Convert integer ID to string (service uses UUID strings)
-        results = ABMSimulationService.get_simulation_results(str(simulation_id))
-        
-        # Convert to format expected by API
-        api_results = {
-            "id": simulation_id,
-            "name": f"Simulation {simulation_id}",
-            "model_id": 0,  # We don't know the model ID since this is from stored results
-            "status": "completed",
-            "parameters": results.get("parameters", {}),
-            "steps_executed": results.get("steps_executed", 0),
-            "results_summary": results.get("final_state", {}),
-            "created_at": "",
-            "updated_at": ""
-        }
-        
-        return api_results
-        
-    except Exception as e:
-        raise HTTPException(status_code=404, detail="Simulation not found")
+    # Check if simulation exists
+    if simulation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found")
+    
+    # Check authorization
+    if simulation.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    return simulation
 
-@router.post("/simulations", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
+@router.post("/simulations", response_model=SimulationSchema, status_code=status.HTTP_201_CREATED)
 async def create_simulation(
-    model_id: int,
-    name: str,
-    description: Optional[str] = None,
-    parameters: Dict[str, Any] = None,
+    simulation_in: SimulationCreate,
+    db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
     """
     Create a new ABM simulation.
     """
-    global SIMULATION_ID_COUNTER
-    
     # Find the model
-    model = None
-    for m in ABM_MODELS:
-        if m["id"] == model_id:
-            model = m
-            break
+    query = select(ABMModel).where(ABMModel.id == simulation_in.model_id)
+    result = await db.execute(query)
+    model = result.scalar_one_or_none()
     
-    if not model:
-        raise HTTPException(status_code=404, detail="Model not found")
+    if model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
     
-    # Create simulation
-    simulation = {
-        "id": SIMULATION_ID_COUNTER,
-        "name": name,
-        "description": description or f"Simulation for model: {model['name']}",
-        "model_id": model_id,
-        "user_id": user.id,
-        "status": "created",
-        "parameters": parameters or {},
-        "steps_executed": 0,
-        "results_summary": {},
-        "created_at": str(dict(hour=10, minute=30, year=2025, month=4, day=1)),
-        "updated_at": str(dict(hour=10, minute=30, year=2025, month=4, day=1))
-    }
+    # Check model authorization
+    if model.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to use this model")
     
-    SIMULATIONS.append(simulation)
-    SIMULATION_ID_COUNTER += 1
+    # Create new ABMSimulation instance
+    new_simulation = ABMSimulation(
+        name=simulation_in.name,
+        description=simulation_in.description or f"Simulation for model: {model.name}",
+        model_id=simulation_in.model_id,
+        user_id=user.id,
+        status="created",
+        parameters=simulation_in.parameters or {},
+        steps_executed=0,
+        results_summary={}
+    )
     
-    return simulation
+    # Save to database
+    db.add(new_simulation)
+    await db.commit()
+    await db.refresh(new_simulation)
+    
+    return new_simulation
 
-@router.post("/simulations/{simulation_id}/run", response_model=Dict[str, Any])
-async def run_simulation(simulation_id: int, steps: Optional[int] = None):
+@router.post("/simulations/{simulation_id}/run", response_model=SimulationSchema)
+async def run_simulation(
+    simulation_id: int,
+    steps: Optional[int] = None,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Run an ABM simulation for the specified number of steps.
     """
-    # Find the simulation
-    simulation_idx = -1
-    simulation = None
-    for i, s in enumerate(SIMULATIONS):
-        if s["id"] == simulation_id:
-            simulation = s
-            simulation_idx = i
-            break
+    # Fetch the simulation from database
+    query = select(ABMSimulation).where(ABMSimulation.id == simulation_id)
+    result = await db.execute(query)
+    db_simulation = result.scalar_one_or_none()
     
-    if not simulation:
-        raise HTTPException(status_code=404, detail="Simulation not found")
+    # Check if simulation exists
+    if db_simulation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found")
     
-    # Find the model
-    model = None
-    for m in ABM_MODELS:
-        if m["id"] == simulation["model_id"]:
-            model = m
-            break
+    # Check authorization
+    if db_simulation.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
-    if not model:
-        raise HTTPException(status_code=404, detail="Model for this simulation not found")
+    # Fetch the associated model
+    query = select(ABMModel).where(ABMModel.id == db_simulation.model_id)
+    result = await db.execute(query)
+    db_model = result.scalar_one_or_none()
     
-    # Create a mock network for testing
-    # In a real implementation, this would use the network from the model's network_id
-    mock_network = {
-        "nodes": [
-            {"id": f"node_{i}", "department": ["HR", "Sales", "Engineering", "Finance", "Marketing"][i % 5]}
-            for i in range(50)
-        ],
-        "edges": [
-            {"source": f"node_{i}", "target": f"node_{j}", "weight": 1.0}
-            for i in range(50) for j in range(i+1, min(i+5, 50))
-        ]
-    }
+    if db_model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model for this simulation not found")
+    
+    # Initialize a graph G
+    G = nx.Graph()
+    
+    # If model has a network_id, use that network for simulation
+    if db_model.network_id:
+        # Fetch the network
+        query = select(Network).where(Network.id == db_model.network_id)
+        result = await db.execute(query)
+        db_network = result.scalar_one_or_none()
+        
+        if db_network is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network for this model not found")
+        
+        # Load graph from network file
+        file_path = db_network.file_path
+        if not file_path or not os.path.exists(file_path):
+            raise HTTPException(status_code=400, detail="Network file not found")
+        
+        # Load graph
+        if file_path.endswith(".graphml"):
+            G = nx.read_graphml(file_path)
+        elif file_path.endswith(".gexf"):
+            G = nx.read_gexf(file_path)
+        elif file_path.endswith(".gml"):
+            G = nx.read_gml(file_path)
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported network file format")
+    else:
+        # Create a default network if none specified
+        G = nx.Graph()
+        # Add some nodes and edges for testing
+        for i in range(50):
+            G.add_node(str(i), department=["HR", "Sales", "Engineering", "Finance", "Marketing"][i % 5])
+        for i in range(50):
+            for j in range(i+1, min(i+5, 50)):
+                G.add_edge(str(i), str(j), weight=1.0)
     
     # Determine steps to run
     if not steps:
-        steps = simulation["parameters"].get("time_steps", 100)
+        steps = db_simulation.parameters.get("time_steps", 100)
     
     try:
         # Create ABM model
         abm_model = ABMSimulationService.create_model(
-            simulation_type=SimulationType(model["simulation_type"]),
-            network_data=mock_network,
-            parameters=simulation["parameters"]
+            simulation_type=SimulationType(db_model.simulation_type),
+            network_data=G,
+            parameters=db_simulation.parameters
         )
         
         # Run simulation
@@ -256,76 +334,74 @@ async def run_simulation(simulation_id: int, steps: Optional[int] = None):
             simulation_id=str_sim_id
         )
         
-        # Update simulation status
-        if simulation_idx >= 0:
-            SIMULATIONS[simulation_idx]["status"] = "completed"
-            SIMULATIONS[simulation_idx]["steps_executed"] = steps
-            SIMULATIONS[simulation_idx]["results_summary"] = results.get("final_state", {})
-            SIMULATIONS[simulation_idx]["updated_at"] = str(dict(hour=10, minute=30, year=2025, month=4, day=1))
-            
-            return SIMULATIONS[simulation_idx]
+        # Update simulation status in database
+        db_simulation.status = "completed"
+        db_simulation.steps_executed = steps
+        db_simulation.results_summary = results.get("final_state", {})
+        db_simulation.results_file_path = results.get("results_file_path")
         
-        # If simulation not in memory, return the results directly
-        return {
-            "id": simulation_id,
-            "name": simulation["name"],
-            "model_id": simulation["model_id"],
-            "status": "completed",
-            "steps_executed": steps,
-            "results_summary": results.get("final_state", {}),
-            "parameters": simulation["parameters"]
-        }
+        await db.commit()
+        await db.refresh(db_simulation)
+        
+        return db_simulation
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error running simulation: {str(e)}")
 
 @router.get("/simulations/{simulation_id}/results", response_model=Dict[str, Any])
-async def get_simulation_results(simulation_id: int, detail_level: str = "summary"):
+async def get_simulation_results(
+    simulation_id: int,
+    detail_level: str = "summary",
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Get the results of a completed simulation.
     """
-    # First check in-memory storage
-    for simulation in SIMULATIONS:
-        if simulation["id"] == simulation_id:
-            if simulation["status"] != "completed":
-                raise HTTPException(status_code=400, detail="Simulation has not been completed")
-            
-            # For in-memory simulations, we might not have all details
-            if detail_level == "summary":
-                return {
-                    "simulation_id": simulation_id,
-                    "name": simulation["name"],
-                    "results_summary": simulation["results_summary"]
-                }
-            else:
-                # Try to get from ABM service for full details
-                pass
+    # Fetch the simulation from database
+    query = select(ABMSimulation).where(ABMSimulation.id == simulation_id)
+    result = await db.execute(query)
+    db_simulation = result.scalar_one_or_none()
     
-    # Try to get from ABM service
-    try:
-        # Convert integer ID to string (service uses UUID strings)
-        results = ABMSimulationService.get_simulation_results(str(simulation_id))
-        
-        if detail_level == "summary":
-            return {
-                "simulation_id": simulation_id,
-                "name": f"Simulation {simulation_id}",
-                "results_summary": results.get("final_state", {})
-            }
+    # Check if simulation exists
+    if db_simulation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found")
+    
+    # Check authorization
+    if db_simulation.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    # Check if simulation is completed
+    if db_simulation.status != "completed":
+        raise HTTPException(status_code=400, detail="Simulation has not been completed")
+    
+    # Return appropriate level of detail
+    if detail_level == "summary":
+        return {
+            "simulation_id": simulation_id,
+            "name": db_simulation.name,
+            "results_summary": db_simulation.results_summary
+        }
+    else:
+        # Full detail - load from file if available
+        if db_simulation.results_file_path and os.path.exists(db_simulation.results_file_path):
+            try:
+                with open(db_simulation.results_file_path, 'r') as f:
+                    full_results = json.load(f)
+                return full_results
+            except Exception:
+                raise HTTPException(status_code=404, detail="Full results file not found or corrupted")
         else:
-            # Return full results
-            return results
-            
-    except Exception as e:
-        raise HTTPException(status_code=404, detail="Simulation results not found")
+            raise HTTPException(status_code=404, detail="Full results file not found")
 
 @router.post("/parameter-sweep", response_model=Dict[str, Any])
 async def parameter_sweep(
     simulation_type: str,
     parameter_ranges: Dict[str, List[float]],
+    network_id: Optional[int] = None,
     steps: int = 100,
     metric_name: str = "culture_homogeneity",
-    network_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
     """
@@ -340,24 +416,52 @@ async def parameter_sweep(
             detail=f"Invalid simulation type. Must be one of: {', '.join([e.value for e in SimulationType])}"
         )
     
-    # Create a mock network for testing
-    # In a real implementation, this would use the network from network_id
-    mock_network = {
-        "nodes": [
-            {"id": f"node_{i}", "department": ["HR", "Sales", "Engineering", "Finance", "Marketing"][i % 5]}
-            for i in range(50)
-        ],
-        "edges": [
-            {"source": f"node_{i}", "target": f"node_{j}", "weight": 1.0}
-            for i in range(50) for j in range(i+1, min(i+5, 50))
-        ]
-    }
+    # Initialize a graph G
+    G = nx.Graph()
+    
+    # If network_id provided, fetch and use that network
+    if network_id:
+        # Fetch the network
+        query = select(Network).where(Network.id == network_id)
+        result = await db.execute(query)
+        db_network = result.scalar_one_or_none()
+        
+        if db_network is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Network not found")
+        
+        # Check authorization
+        if db_network.user_id != user.id and not user.is_superuser:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to use this network")
+        
+        # Load graph from network file
+        file_path = db_network.file_path
+        if not file_path or not os.path.exists(file_path):
+            raise HTTPException(status_code=400, detail="Network file not found")
+        
+        # Load graph
+        if file_path.endswith(".graphml"):
+            G = nx.read_graphml(file_path)
+        elif file_path.endswith(".gexf"):
+            G = nx.read_gexf(file_path)
+        elif file_path.endswith(".gml"):
+            G = nx.read_gml(file_path)
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported network file format")
+    else:
+        # Create a default network if none specified
+        G = nx.Graph()
+        # Add some nodes and edges for testing
+        for i in range(50):
+            G.add_node(str(i), department=["HR", "Sales", "Engineering", "Finance", "Marketing"][i % 5])
+        for i in range(50):
+            for j in range(i+1, min(i+5, 50)):
+                G.add_edge(str(i), str(j), weight=1.0)
     
     try:
         # Run parameter sweep
         results = ABMSimulationService.parameter_sweep(
             simulation_type=sim_type,
-            network_data=mock_network,
+            network_data=G,
             parameter_ranges=parameter_ranges,
             steps=steps,
             metric_name=metric_name

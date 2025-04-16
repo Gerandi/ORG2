@@ -1,6 +1,13 @@
-from fastapi import APIRouter, HTTPException, status
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from fastapi import APIRouter, HTTPException, status, Depends
+from typing import List
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import delete
+
+from app.core.database import get_async_session
+from app.auth.authentication import current_active_user
+from app.models.models import Project, User
+from app.schemas.project import ProjectCreate, ProjectUpdate, Project as ProjectSchema
 
 router = APIRouter(
     prefix="/projects",
@@ -8,105 +15,132 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-# Mock data for demonstration purposes
-MOCK_PROJECTS = [
-    {
-        "id": 1,
-        "name": "Communication Patterns Study",
-        "description": "Analysis of communication patterns in a medium-sized organization",
-        "created_at": "2025-04-01T10:00:00",
-        "updated_at": "2025-04-14T15:30:00",
-        "type": "SNA",
-        "status": "active"
-    },
-    {
-        "id": 2,
-        "name": "Team Performance Prediction",
-        "description": "Machine learning model to predict team performance based on collaboration metrics",
-        "created_at": "2025-03-15T09:30:00",
-        "updated_at": "2025-04-10T14:20:00",
-        "type": "ML",
-        "status": "active"
-    },
-    {
-        "id": 3,
-        "name": "Organizational Culture Simulation",
-        "description": "Agent-based model simulating the evolution of organizational culture",
-        "created_at": "2025-02-20T11:45:00",
-        "updated_at": "2025-04-05T16:10:00",
-        "type": "ABM",
-        "status": "active"
-    }
-]
-
-@router.get("/", response_model=List[Dict[str, Any]])
-async def get_projects():
+@router.get("/", response_model=List[ProjectSchema])
+async def get_projects(
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Retrieve all projects.
     """
-    return MOCK_PROJECTS
+    # Implement authorization filter - superusers can see all projects, regular users only their own
+    if user.is_superuser:
+        query = select(Project)
+    else:
+        query = select(Project).where(Project.user_id == user.id)
+    
+    result = await db.execute(query)
+    projects = result.scalars().all()
+    
+    return projects
 
-@router.get("/{project_id}", response_model=Dict[str, Any])
-async def get_project(project_id: int):
+@router.get("/{project_id}", response_model=ProjectSchema)
+async def get_project(
+    project_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Retrieve a specific project by ID.
     """
-    for project in MOCK_PROJECTS:
-        if project["id"] == project_id:
-            return project
-    raise HTTPException(status_code=404, detail="Project not found")
+    # Fetch the project from database
+    query = select(Project).where(Project.id == project_id)
+    result = await db.execute(query)
+    project = result.scalar_one_or_none()
+    
+    # Check if project exists
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    
+    # Check authorization - only owner or superuser can access
+    if project.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    return project
 
-@router.post("/", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
-async def create_project(project: Dict[str, Any]):
+@router.post("/", response_model=ProjectSchema, status_code=status.HTTP_201_CREATED)
+async def create_project(
+    project_in: ProjectCreate,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Create a new project.
     """
-    # Basic validation
-    required_fields = ["name", "type"]
-    for field in required_fields:
-        if field not in project:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Missing required field: {field}"
-            )
+    # Create new Project instance from input data
+    new_project = Project(
+        name=project_in.name,
+        description=project_in.description,
+        type=project_in.type,
+        user_id=user.id  # Set the user_id to the current authenticated user
+    )
     
-    # In a real implementation, this would save to a database
-    new_project = {
-        "id": len(MOCK_PROJECTS) + 1,
-        **project,
-        "created_at": datetime.now().isoformat(),
-        "updated_at": datetime.now().isoformat(),
-        "status": project.get("status", "active")
-    }
+    # Add to database, commit transaction, and refresh instance to get auto-generated fields
+    db.add(new_project)
+    await db.commit()
+    await db.refresh(new_project)
     
-    MOCK_PROJECTS.append(new_project)
     return new_project
 
-@router.put("/{project_id}", response_model=Dict[str, Any])
-async def update_project(project_id: int, project_update: Dict[str, Any]):
+@router.put("/{project_id}", response_model=ProjectSchema)
+async def update_project(
+    project_id: int,
+    project_update: ProjectUpdate,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Update an existing project.
     """
-    for i, project in enumerate(MOCK_PROJECTS):
-        if project["id"] == project_id:
-            # Update project, but don't allow modifying id, created_at
-            MOCK_PROJECTS[i] = {
-                **project,
-                **{k: v for k, v in project_update.items() if k not in ["id", "created_at"]},
-                "updated_at": datetime.now().isoformat()
-            }
-            return MOCK_PROJECTS[i]
+    # Fetch the project from database
+    query = select(Project).where(Project.id == project_id)
+    result = await db.execute(query)
+    project = result.scalar_one_or_none()
     
-    raise HTTPException(status_code=404, detail="Project not found")
+    # Check if project exists
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    
+    # Check authorization - only owner or superuser can update
+    if project.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    # Update project attributes
+    update_data = project_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(project, key, value)
+    
+    # Commit changes and refresh instance
+    await db.commit()
+    await db.refresh(project)
+    
+    return project
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_project(project_id: int):
+async def delete_project(
+    project_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
     """
     Delete a project.
     """
-    for i, project in enumerate(MOCK_PROJECTS):
-        if project["id"] == project_id:
-            MOCK_PROJECTS.pop(i)
-            return
+    # Fetch the project from database
+    query = select(Project).where(Project.id == project_id)
+    result = await db.execute(query)
+    project = result.scalar_one_or_none()
     
-    raise HTTPException(status_code=404, detail="Project not found")
+    # Check if project exists
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    
+    # Check authorization - only owner or superuser can delete
+    if project.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    # Delete the project
+    await db.execute(delete(Project).where(Project.id == project_id))
+    await db.commit()
+    
+    # Return None (handled by FastAPI's status_code=204)
+    return None
