@@ -5,6 +5,8 @@ import json
 import os
 import uuid
 import shutil
+import pandas as pd
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import delete, update
@@ -13,6 +15,7 @@ from app.core.database import get_async_session
 from app.auth.authentication import current_active_user
 from app.models.models import Network, Dataset, User
 from app.schemas.network import NetworkCreate, NetworkUpdate, Network as NetworkSchema, NetworkData
+from app.schemas.data import TieStrengthCalculationMethod
 from app.services.network_analysis import NetworkAnalysisService
 from app.services.data_service import DataService
 
@@ -72,14 +75,11 @@ async def create_network(
     description: Optional[str] = Form(None),
     directed: bool = Form(False),
     weighted: bool = Form(False),
-    source_col: Optional[str] = Form(None),
-    target_col: Optional[str] = Form(None),
-    weight_col: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
     """
-    Create a new network model from a dataset.
+    Create a new network model from a dataset using tie strength definition.
     """
     try:
         # Get the dataset
@@ -115,73 +115,88 @@ async def create_network(
         else:
             # Load the dataset
             if file_path.endswith(".csv"):
-                import pandas as pd
                 df = pd.read_csv(file_path)
             elif file_path.endswith((".xlsx", ".xls")):
-                import pandas as pd
                 df = pd.read_excel(file_path)
             elif file_path.endswith(".json"):
                 with open(file_path, 'r') as f:
                     data = json.load(f)
                 if isinstance(data, list):
-                    import pandas as pd
                     df = pd.DataFrame(data)
                 else:
                     raise HTTPException(status_code=400, detail="JSON must contain an array of objects")
             else:
                 raise HTTPException(status_code=400, detail="Unsupported file format")
+
+            # Check if tie strength definition exists
+            if not dataset.tie_strength_definition:
+                raise HTTPException(status_code=400, detail="A tie strength definition must be set for the dataset before creating a network")
             
-            # Check columns
-            if not source_col or not target_col:
-                raise HTTPException(status_code=400, detail="Source and target columns must be specified")
+            # Extract definition details
+            definition = dataset.tie_strength_definition
+            source_col = definition['source_column']
+            target_col = definition['target_column']
+            calc_method = definition['calculation_method']
+            weight_col = definition.get('weight_column')
+            is_directed_def = definition.get('directed', False)
             
-            if source_col not in df.columns or target_col not in df.columns:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Source or target column not found. Available columns: {', '.join(df.columns)}"
-                )
+            # Ensure required columns exist in DataFrame
+            required_cols_df = [source_col, target_col]
+            if calc_method == TieStrengthCalculationMethod.ATTRIBUTE_VALUE and weight_col:
+                required_cols_df.append(weight_col)
+            missing_cols_df = [col for col in required_cols_df if col not in df.columns]
+            if missing_cols_df:
+                raise HTTPException(status_code=400, detail=f"Required columns missing in data file: {', '.join(missing_cols_df)}")
             
-            if weighted and weight_col and weight_col not in df.columns:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Weight column not found. Available columns: {', '.join(df.columns)}"
-                )
-            
-            # Create graph
-            if directed:
+            # Create graph based on definition's directed flag or parameter override
+            if directed or is_directed_def:
                 G = nx.DiGraph()
             else:
                 G = nx.Graph()
             
-            # Add edges
-            for _, row in df.iterrows():
-                source = row[source_col]
-                target = row[target_col]
-                
-                # Skip if source or target is missing
-                if pd.isna(source) or pd.isna(target):
-                    continue
-                
-                # Add edge
-                if weighted and weight_col:
-                    weight = row[weight_col] if not pd.isna(row[weight_col]) else 1.0
-                    G.add_edge(str(source), str(target), weight=float(weight))
-                else:
-                    G.add_edge(str(source), str(target))
+            # Add nodes first (ensure all nodes from source/target exist)
+            all_nodes = pd.unique(df[[source_col, target_col]].values.ravel('K'))
+            for node_id in all_nodes:
+                if not pd.isna(node_id):
+                    # Try to find attributes for this node (e.g., from the first occurrence)
+                    node_rows = df[(df[source_col] == node_id) | (df[target_col] == node_id)]
+                    if not node_rows.empty:
+                        node_row = node_rows.iloc[0]
+                        node_attrs = {col: node_row[col] for col in df.columns if col not in [source_col, target_col, weight_col]}
+                        G.add_node(str(node_id), **node_attrs)
             
-            # Add node attributes from other columns
-            node_attributes = {}
-            for column in df.columns:
-                if column not in [source_col, target_col, weight_col]:
-                    # Create a dictionary of node_id -> attribute value
-                    node_dict = {}
-                    for _, row in df.iterrows():
-                        source = row[source_col]
-                        if not pd.isna(source) and not pd.isna(row[column]):
-                            node_dict[str(source)] = row[column]
-                    
-                    # Apply attributes to nodes
-                    nx.set_node_attributes(G, node_dict, column)
+            # Calculate weights based on method
+            if weighted:
+                if calc_method == TieStrengthCalculationMethod.FREQUENCY:
+                    # Group by source and target, count occurrences
+                    edge_weights = df.groupby([source_col, target_col]).size().reset_index(name='weight')
+                elif calc_method == TieStrengthCalculationMethod.ATTRIBUTE_VALUE and weight_col:
+                    # Group by source and target, sum the weight column
+                    # Ensure weight column is numeric
+                    if not pd.api.types.is_numeric_dtype(df[weight_col]):
+                        raise HTTPException(status_code=400, detail=f"Weight column '{weight_col}' must be numeric for ATTRIBUTE_VALUE method.")
+                    edge_weights = df.groupby([source_col, target_col])[weight_col].sum().reset_index(name='weight')
+                else:
+                    # Default or unsupported method for weighted - treat as unweighted for now
+                    edge_weights = df[[source_col, target_col]].drop_duplicates()
+                    edge_weights['weight'] = 1.0  # Assign default weight
+                    weighted = False  # Mark as effectively unweighted if method not supported
+                
+                # Add edges with calculated weights
+                for _, row in edge_weights.iterrows():
+                    source = row[source_col]
+                    target = row[target_col]
+                    weight = row['weight']
+                    if not pd.isna(source) and not pd.isna(target):
+                        G.add_edge(str(source), str(target), weight=float(weight))
+            else:
+                # Add unweighted edges (unique pairs)
+                unique_edges = df[[source_col, target_col]].drop_duplicates()
+                for _, row in unique_edges.iterrows():
+                    source = row[source_col]
+                    target = row[target_col]
+                    if not pd.isna(source) and not pd.isna(target):
+                        G.add_edge(str(source), str(target))
         
         # Calculate metrics using NetworkAnalysisService
         metrics = NetworkAnalysisService.calculate_network_metrics(G)
@@ -208,9 +223,7 @@ async def create_network(
             node_count=G.number_of_nodes(),
             edge_count=G.number_of_edges(),
             attributes={
-                "source_col": source_col,
-                "target_col": target_col,
-                "weight_col": weight_col,
+                "tie_strength_definition": definition,
                 "dataset_name": dataset.name
             }
         )

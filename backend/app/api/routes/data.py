@@ -1,15 +1,19 @@
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form, Depends, Query
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import update
 
 from app.core.database import get_async_session
 from app.services.data_service import DataService
 from app.auth.authentication import current_active_user
 from app.models.user import User
+from app.models.models import Dataset
 from app.schemas.data import (
-    Dataset, DatasetCreate, DatasetUpdate,
+    Dataset as DatasetSchema, DatasetCreate, DatasetUpdate,
     ProcessingOptions, AnonymizationOptions,
-    DatasetPreview, DatasetStats
+    DatasetPreview, DatasetStats,
+    TieStrengthDefinition, TieStrengthCalculationMethod
 )
 
 router = APIRouter(
@@ -18,7 +22,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.get("/", response_model=List[Dataset])
+@router.get("/", response_model=List[DatasetSchema])
 async def get_datasets(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
@@ -28,7 +32,7 @@ async def get_datasets(
     """
     return await DataService.get_datasets(db)
 
-@router.get("/{dataset_id}", response_model=Dataset)
+@router.get("/{dataset_id}", response_model=DatasetSchema)
 async def get_dataset(
     dataset_id: int,
     db: AsyncSession = Depends(get_async_session),
@@ -42,7 +46,7 @@ async def get_dataset(
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
 
-@router.post("/", response_model=Dataset, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=DatasetSchema, status_code=status.HTTP_201_CREATED)
 async def create_dataset(
     dataset: DatasetCreate,
     db: AsyncSession = Depends(get_async_session),
@@ -56,7 +60,7 @@ async def create_dataset(
     
     return await DataService.create_dataset(db, dataset_data)
 
-@router.post("/upload", response_model=Dataset, status_code=status.HTTP_201_CREATED)
+@router.post("/upload", response_model=DatasetSchema, status_code=status.HTTP_201_CREATED)
 async def upload_dataset(
     file: UploadFile = File(...),
     dataset_name: Optional[str] = Form(None),
@@ -75,7 +79,7 @@ async def upload_dataset(
         project_id=project_id
     )
 
-@router.put("/{dataset_id}", response_model=Dataset)
+@router.put("/{dataset_id}", response_model=DatasetSchema)
 async def update_dataset(
     dataset_id: int,
     dataset_update: DatasetUpdate,
@@ -116,7 +120,7 @@ async def delete_dataset(
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete dataset")
 
-@router.post("/{dataset_id}/process", response_model=Dataset)
+@router.post("/{dataset_id}/process", response_model=DatasetSchema)
 async def process_dataset(
     dataset_id: int,
     processing_options: ProcessingOptions,
@@ -136,7 +140,7 @@ async def process_dataset(
     
     return await DataService.process_dataset(db, dataset_id, processing_options)
 
-@router.post("/{dataset_id}/anonymize", response_model=Dataset)
+@router.post("/{dataset_id}/anonymize", response_model=DatasetSchema)
 async def anonymize_dataset(
     dataset_id: int,
     anonymization_options: AnonymizationOptions,
@@ -194,3 +198,48 @@ async def get_dataset_stats(
         raise HTTPException(status_code=403, detail="Not authorized to access this dataset")
     
     return await DataService.get_dataset_stats(db, dataset_id)
+
+@router.post("/{dataset_id}/tie-strength", response_model=DatasetSchema)
+async def define_tie_strength(
+    dataset_id: int,
+    definition: TieStrengthDefinition,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
+    """Define how tie strength should be calculated for this dataset."""
+    # Fetch the dataset
+    result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
+    dataset = result.scalar_one_or_none()
+    if not dataset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
+
+    # Authorization check
+    if dataset.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
+    # Validate columns exist in dataset.columns (if dataset.columns is populated)
+    required_cols = [definition.source_column, definition.target_column]
+    if definition.calculation_method == TieStrengthCalculationMethod.ATTRIBUTE_VALUE and definition.weight_column:
+        required_cols.append(definition.weight_column)
+    if definition.timestamp_column:
+        required_cols.append(definition.timestamp_column)
+
+    if dataset.columns: # Only validate if columns are known
+        missing_cols = [col for col in required_cols if col not in dataset.columns]
+        if missing_cols:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Columns not found in dataset: {', '.join(missing_cols)}"
+            )
+
+    # Update the dataset record
+    stmt = (
+        update(Dataset)
+        .where(Dataset.id == dataset_id)
+        .values(tie_strength_definition=definition.dict())
+    )
+    await db.execute(stmt)
+    await db.commit()
+    await db.refresh(dataset)
+
+    return dataset

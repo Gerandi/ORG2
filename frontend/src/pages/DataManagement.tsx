@@ -9,6 +9,7 @@ import DataUploadModal from '../components/organisms/DataUploadModal';
 import DatasetPreview from '../components/organisms/DatasetPreview';
 import DataProcessingForm from '../components/organisms/DataProcessingForm';
 import AnonymizationForm from '../components/organisms/AnonymizationForm';
+import TieStrengthDefinitionForm from '../components/organisms/TieStrengthDefinition';
 import { useDataContext } from '../shared/contexts';
 
 const DataManagement: React.FC = () => {
@@ -328,6 +329,10 @@ const DataManagement: React.FC = () => {
         </div>
         
         <DatasetPreview datasetId={selectedDataset.id} />
+
+        <div className="mt-6">
+          <TieStrengthDefinitionForm dataset={selectedDataset} />
+        </div>
       </>
     );
   };
@@ -433,8 +438,7 @@ const DataManagement: React.FC = () => {
       <Tabs
         items={[
           { id: 'datasets', label: 'Datasets' },
-          { id: 'preprocessing', label: 'Preprocessing' },
-          { id: 'tie-strength', label: 'Tie Strength Definition' },
+          { id: 'preprocessing', label: 'Data Processing' }, // Renamed
           { id: 'anonymization', label: 'Anonymization' }
         ]}
         activeTab={activeTab}
@@ -471,12 +475,31 @@ const DataManagement: React.FC = () => {
       
       {/* Tie Strength Tab Content */}
       {activeTab === 'tie-strength' && (
-        <Card>
-          <Heading level={3}>Tie Strength Definition</Heading>
-          <Text variant="caption" className="mt-2">
-            Tools for defining network tie strength will be implemented here.
-          </Text>
-        </Card>
+        <>
+          {!selectedDataset ? (
+            <Card>
+              <div className="text-center py-12">
+                <Database className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                <Heading level={4} className="mb-2">No dataset selected</Heading>
+                <Text variant="caption" className="text-gray-500">
+                  Please select a dataset from the Datasets tab to define tie strength.
+                </Text>
+                <Button 
+                  variant="primary" 
+                  className="mt-4"
+                  onClick={() => {
+                    setActiveTab('datasets');
+                    setViewMode('list');
+                  }}
+                >
+                  View Datasets
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <TieStrengthDefinitionForm dataset={selectedDataset} />
+          )}
+        </>
       )}
       
       {/* Anonymization Tab Content */}

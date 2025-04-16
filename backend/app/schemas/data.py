@@ -1,6 +1,22 @@
 from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
+from enum import Enum
 from pydantic import BaseModel, Field
+
+class TieStrengthCalculationMethod(str, Enum):
+    """Enum for tie strength calculation methods."""
+    FREQUENCY = "frequency"
+    ATTRIBUTE_VALUE = "attribute_value"
+
+class TieStrengthDefinition(BaseModel):
+    """Schema for tie strength definition."""
+    source_column: str = Field(..., description="Column representing the source node")
+    target_column: str = Field(..., description="Column representing the target node")
+    calculation_method: TieStrengthCalculationMethod = Field(..., description="Method to calculate tie strength")
+    weight_column: Optional[str] = Field(None, description="Column containing the value for 'attribute_value' method")
+    timestamp_column: Optional[str] = Field(None, description="Column containing timestamps for 'frequency' method (optional for simple count)")
+    time_window_seconds: Optional[int] = Field(None, description="Time window in seconds for frequency calculation (optional)")
+    directed: bool = Field(False, description="Whether the relationship is directed")
 
 class DatasetBase(BaseModel):
     """Base dataset schema with common attributes."""
@@ -33,7 +49,7 @@ class DatasetInDB(DatasetBase):
 
 class Dataset(DatasetInDB):
     """Full dataset schema for API responses."""
-    pass
+    tie_strength_definition: Optional[TieStrengthDefinition] = None
 
 class ProcessingOptions(BaseModel):
     """Schema for dataset processing options."""

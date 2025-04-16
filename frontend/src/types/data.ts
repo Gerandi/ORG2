@@ -1,5 +1,6 @@
 export type DatasetStatus = 'Raw' | 'Processed' | 'Anonymized' | 'Needs Cleaning';
 export type DatasetType = 'CSV' | 'JSON' | 'XLSX' | 'Unknown';
+export type TieStrengthCalculationMethod = 'frequency' | 'attribute_value';
 
 export interface Dataset {
   id: number;
@@ -12,6 +13,7 @@ export interface Dataset {
   status: DatasetStatus;
   row_count?: number;
   columns?: string[];
+  tie_strength_definition?: TieStrengthDefinition | null;
 }
 
 export interface ProcessingOptions {
@@ -43,10 +45,9 @@ export interface AnonymizationOptions {
 export interface TieStrengthDefinition {
   source_column: string;
   target_column: string;
-  weight_columns?: string[];
-  calculation_method: 'frequency' | 'duration' | 'multi_attribute' | 'custom';
+  calculation_method: TieStrengthCalculationMethod;
+  weight_column?: string;
+  timestamp_column?: string;
+  time_window_seconds?: number;
   directed: boolean;
-  parameters?: {
-    [key: string]: any;
-  };
 }

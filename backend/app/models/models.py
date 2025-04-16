@@ -103,6 +103,9 @@ class Dataset(Base):
     processed_file_path = Column(String(255), nullable=True)
     anonymized_file_path = Column(String(255), nullable=True)
     
+    # Store tie strength definition as JSON
+    tie_strength_definition = Column(JSON, nullable=True)
+    
     # Relationships
     user_id = Column(Integer, ForeignKey("users.id"))
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
@@ -113,7 +116,7 @@ class Dataset(Base):
     # Relationships with other models
     networks = relationship("Network", back_populates="dataset", cascade="all, delete-orphan")
     prepared_data = relationship("PreparedData", back_populates="dataset", cascade="all, delete-orphan")
-    ml_models = relationship("MLModel", secondary=dataset_mlmodel, back_populates="datasets")
+    ml_models = relationship("MLModel", secondary=dataset_mlmodel, back_populates="ml_models")
 
 
 class Network(Base):

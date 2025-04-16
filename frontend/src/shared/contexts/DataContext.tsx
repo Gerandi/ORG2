@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Dataset, ProcessingOptions, AnonymizationOptions } from '../../types/data';
+import { Dataset, ProcessingOptions, AnonymizationOptions, TieStrengthDefinition } from '../../types/data';
 import { dataService } from '../services';
 import { useAuthContext } from './AuthContext';
 
@@ -16,6 +16,7 @@ interface DataContextProps {
   processDataset: (id: number, options: ProcessingOptions) => Promise<void>;
   anonymizeDataset: (id: number, options: AnonymizationOptions) => Promise<void>;
   uploadDataset: (file: File, name?: string) => Promise<void>;
+  defineTieStrength: (id: number, definition: TieStrengthDefinition) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
@@ -163,6 +164,25 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   }, []);
   
+  const defineTieStrength = useCallback(async (id: number, definition: TieStrengthDefinition): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const updatedDataset = await dataService.defineTieStrength(id, definition);
+      setDatasets(prevDatasets => prevDatasets.map(d => d.id === id ? updatedDataset : d));
+      
+      if (selectedDataset?.id === id) {
+        setSelectedDataset(updatedDataset);
+      }
+    } catch (err) {
+      setError('Failed to define tie strength');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedDataset?.id]);
+  
   useEffect(() => {
     if (isAuthenticated) {
       fetchDatasets();
@@ -188,6 +208,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         processDataset,
         anonymizeDataset,
         uploadDataset,
+        defineTieStrength,
       }}
     >
       {children}

@@ -893,3 +893,23 @@ class DataService:
             stats["statistics"][col] = col_stats
         
         return stats
+    
+    @staticmethod
+    async def define_tie_strength(
+        db: AsyncSession,
+        dataset_id: int,
+        definition: "TieStrengthDefinition"
+    ) -> Dataset:
+        """Define tie strength calculation for a dataset."""
+        # Fetch dataset
+        dataset = await DataService.get_dataset(db, dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        # Basic validation
+        if not definition.source_column or not definition.target_column:
+            raise HTTPException(status_code=400, detail="Source and target columns are required.")
+
+        # Update dataset
+        update_data = {"tie_strength_definition": definition.dict()}
+        return await DataService.update_dataset(db, dataset_id, update_data)
