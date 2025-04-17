@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Set, List
 
-from fastapi import Depends, Request, HTTPException, status
+from fastapi import Depends, Request, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordBearer
 from fastapi_users import FastAPIUsers
 from fastapi_users.authentication import (
@@ -52,10 +52,10 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
         """Callback for post-registration actions."""
         print(f"User {user.id} has registered.")
     
-    async def on_after_login(self, user: User, request: Optional[Request] = None):
+    async def on_after_login(self, user: User, request: Optional[Request] = None, response: Optional[Response] = None):
         """Update last login date."""
         user.last_login = datetime.utcnow()
-        await self.user_db.update(user)
+        await self.user_db.update(user, {"last_login": user.last_login})
     
     async def validate_password(self, password: str, user: User) -> None:
         """
