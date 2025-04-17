@@ -182,8 +182,28 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
     setIsSubmitting(true);
     setError(null);
 
+    // Format options according to the backend schema
+    const formattedOptions = {
+      missing_values: {
+        strategy: processingOptions.missing_values?.strategy,
+        columns: processingOptions.missing_values?.columns,
+        fill_value: processingOptions.missing_values?.strategy === 'constant' ? 
+          processingOptions.missing_values?.fill_value : undefined
+      },
+      data_types: Object.fromEntries(
+        Object.entries(processingOptions.data_types || {})
+          .filter(([_, value]) => value !== '') // Remove empty selections
+      ),
+      normalization: processingOptions.normalization?.strategy === 'none' ? 
+        { strategy: 'none', columns: [] } : 
+        {
+          strategy: processingOptions.normalization?.strategy,
+          columns: processingOptions.normalization?.columns
+        }
+    };
+
     try {
-      await onSubmit(processingOptions);
+      await onSubmit(formattedOptions);
     } catch (err) {
       console.error('Processing failed:', err);
       setError('Failed to process dataset. Please try again.');

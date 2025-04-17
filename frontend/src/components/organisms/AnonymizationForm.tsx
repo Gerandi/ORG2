@@ -141,8 +141,19 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
     setIsSubmitting(true);
     setError(null);
 
+    // Format options according to the backend schema
+    const formattedOptions = {
+      method: options.method,
+      sensitive_fields: options.sensitive_fields,
+      quasi_identifiers: options.quasi_identifiers || [],
+      parameters: {
+        k_value: options.k_value,
+        keep_mapping: options.keep_mapping
+      }
+    };
+
     try {
-      await onSubmit(options);
+      await onSubmit(formattedOptions);
     } catch (err) {
       console.error('Anonymization failed:', err);
       setError('Failed to anonymize dataset. Please try again.');

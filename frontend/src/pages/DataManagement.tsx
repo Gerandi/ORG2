@@ -43,10 +43,10 @@ const DataManagement: React.FC = () => {
   }, [fetchDatasets, selectedProject]);
 
   // Filter datasets based on search term
-  const filteredDatasets = datasets.filter(dataset => 
+  const filteredDatasets = datasets.filter(dataset =>
     dataset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    dataset.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    dataset.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    (dataset.description && dataset.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    dataset.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleTabChange = (tabId: string) => {

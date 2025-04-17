@@ -269,9 +269,10 @@ class DataService:
         
         try:
             # Load the dataset
-            file_type = dataset.type
             file_path = dataset.file_path
+            file_type = dataset.type
             
+            # Load data based on file type
             if file_type == "CSV":
                 df = pd.read_csv(file_path)
             elif file_type == "XLSX":
@@ -282,7 +283,6 @@ class DataService:
                 if isinstance(data, list):
                     df = pd.DataFrame(data)
                 else:
-                    # Convert single object to dataframe
                     df = pd.DataFrame([data])
             elif file_type == "NETWORK":
                 # For network files, we need special handling
@@ -290,41 +290,116 @@ class DataService:
             else:
                 raise HTTPException(status_code=400, detail=f"Unsupported file type for processing: {file_type}")
             
-            # Apply processing operations
-            if options.handle_missing_values:
-                if options.missing_value_strategy == "drop_rows":
-                    df = df.dropna()
-                elif options.missing_value_strategy == "drop_columns":
-                    df = df.dropna(axis=1)
-                elif options.missing_value_strategy == "fill_mean":
-                    numeric_cols = df.select_dtypes(include=[np.number]).columns
-                    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
-                elif options.missing_value_strategy == "fill_median":
-                    numeric_cols = df.select_dtypes(include=[np.number]).columns
-                    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
-                elif options.missing_value_strategy == "fill_mode":
-                    for col in df.columns:
-                        df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else None)
-                elif options.missing_value_strategy == "fill_constant":
-                    df = df.fillna(options.fill_value or 0)
+            # Handle missing values if specified
+            if options.missing_values:
+                strategy = options.missing_values.get("strategy")
+                columns = options.missing_values.get("columns", [])
+                
+                # Apply only to specified columns or all if empty
+                if not columns:
+                    columns = df.columns.tolist()
+                
+                if strategy == "mean":
+                    for col in columns:
+                        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                            df[col] = df[col].fillna(df[col].mean())
+                
+                elif strategy == "median":
+                    for col in columns:
+                        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                            df[col] = df[col].fillna(df[col].median())
+                
+                elif strategy == "mode":
+                    for col in columns:
+                        if col in df.columns:
+                            # Get the mode value (most common)
+                            mode_value = df[col].mode()
+                            if not mode_value.empty:
+                                df[col] = df[col].fillna(mode_value[0])
+                
+                elif strategy == "constant":
+                    fill_value = options.missing_values.get("fill_value")
+                    for col in columns:
+                        if col in df.columns:
+                            df[col] = df[col].fillna(fill_value)
+                
+                elif strategy == "remove":
+                    # Drop rows with missing values in specified columns
+                    df = df.dropna(subset=[col for col in columns if col in df.columns])
             
-            if options.normalize_columns and options.columns_to_normalize:
-                for col in options.columns_to_normalize:
-                    if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-                        if options.normalization_method == "min_max":
-                            df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
-                        elif options.normalization_method == "z_score":
-                            df[col] = (df[col] - df[col].mean()) / df[col].std()
+            # Handle data type conversions
+            if options.data_types:
+                for col, dtype in options.data_types.items():
+                    if col in df.columns:
+                        try:
+                            if dtype == "number":
+                                df[col] = pd.to_numeric(df[col], errors="coerce")
+                            elif dtype == "string":
+                                df[col] = df[col].astype(str)
+                            elif dtype == "boolean":
+                                # Convert to boolean, handling various formats
+                                df[col] = df[col].map({
+                                    "true": True, "True": True, "1": True, 1: True, "yes": True, "Yes": True,
+                                    "false": False, "False": False, "0": False, 0: False, "no": False, "No": False
+                                }).astype(bool)
+                            elif dtype == "date":
+                                df[col] = pd.to_datetime(df[col], errors="coerce")
+                        except Exception as e:
+                            logger.warning(f"Failed to convert column {col} to {dtype}: {e}")
             
-            if options.remove_duplicates:
-                df = df.drop_duplicates()
+            # Handle normalization
+            if options.normalization and options.normalization.get("strategy") != "none":
+                strategy = options.normalization.get("strategy")
+                columns = options.normalization.get("columns", [])
+                
+                # Apply only to specified columns or skip if empty
+                if columns:
+                    from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
+                    
+                    for col in columns:
+                        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                            # Reshape for scikit-learn
+                            values = df[col].values.reshape(-1, 1)
+                            
+                            if strategy == "min_max":
+                                scaler = MinMaxScaler()
+                            elif strategy == "standard":
+                                scaler = StandardScaler()
+                            elif strategy == "robust":
+                                scaler = RobustScaler()
+                            else:
+                                continue
+                                
+                            # Apply scaling
+                            try:
+                                scaled_values = scaler.fit_transform(values)
+                                df[col] = scaled_values.flatten()
+                            except Exception as e:
+                                logger.warning(f"Failed to normalize column {col}: {e}")
             
-            if options.filter_rows and options.filter_condition:
-                # Simple filtering with eval (be cautious with this in production)
-                try:
-                    df = df.query(options.filter_condition)
-                except:
-                    pass
+            # Apply transformations if specified
+            if options.transformations:
+                for transform in options.transformations:
+                    operation = transform.get("operation")
+                    columns = transform.get("columns", [])
+                    parameters = transform.get("parameters", {})
+                    
+                    for col in columns:
+                        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                            try:
+                                if operation == "log":
+                                    base = parameters.get("base", 10)
+                                    # Handle zeros and negative values
+                                    df[col] = df[col].clip(lower=1e-10)  
+                                    df[col] = np.log(df[col]) / np.log(base)
+                                elif operation == "sqrt":
+                                    # Handle negative values
+                                    df[col] = np.sqrt(df[col].clip(lower=0))
+                                elif operation == "power":
+                                    power = parameters.get("power", 2)
+                                    df[col] = df[col] ** power
+                            except Exception as e:
+                                logger.warning(f"Failed to apply {operation} to column {col}: {e}")
             
             # Save processed dataset
             dataset_dir = os.path.dirname(file_path)
@@ -332,9 +407,6 @@ class DataService:
             df.to_csv(processed_file_path, index=False)
             
             # Update dataset record
-            processing_details = options.dict()
-            processing_details["timestamp"] = datetime.now().isoformat()
-            
             update_data = {
                 "status": "Processed",
                 "row_count": len(df),
@@ -342,7 +414,7 @@ class DataService:
                 "processed_file_path": processed_file_path,
                 "metadata": {
                     **(dataset.metadata or {}),
-                    "processing": processing_details
+                    "processing": options.dict()
                 }
             }
             
@@ -458,62 +530,187 @@ class DataService:
             else:
                 raise HTTPException(status_code=400, detail=f"Unsupported file type for anonymization: {file_type}")
             
+            # Store mapping between original and anonymized values if requested
+            mappings = {}
+            
             # Apply anonymization based on method
             if options.method == "pseudonymization":
-                for col in options.columns:
-                    if col in df.columns:
+                # Create mappings and apply replacement for each sensitive field
+                for field in options.sensitive_fields:
+                    if field in df.columns:
                         # Create a mapping of original values to pseudonyms
-                        unique_values = df[col].unique()
-                        pseudonyms = {val: f"{col}_{i}" for i, val in enumerate(unique_values)}
+                        unique_values = df[field].unique()
+                        pseudonyms = {
+                            val: f"{field}_{uuid.uuid4().hex[:8]}" 
+                            for val in unique_values if val is not None and pd.notna(val)
+                        }
+                        
+                        # Store mapping if requested
+                        if options.parameters and options.parameters.get("keep_mapping", True):
+                            mappings[field] = {str(k): v for k, v in pseudonyms.items()}
                         
                         # Replace values with pseudonyms
-                        df[col] = df[col].map(pseudonyms)
-            
-            elif options.method == "generalization":
-                for col, level in zip(options.columns, options.generalization_levels or []):
-                    if col in df.columns:
-                        if pd.api.types.is_numeric_dtype(df[col]):
+                        df[field] = df[field].map(lambda x: pseudonyms.get(x, x))
+                        
+            elif options.method == "aggregation":
+                # Identify which fields to aggregate
+                sensitive_fields = options.sensitive_fields
+                quasi_identifiers = options.quasi_identifiers or []
+                
+                if not quasi_identifiers:
+                    # If no quasi-identifiers provided, use all non-sensitive columns
+                    quasi_identifiers = [col for col in df.columns if col not in sensitive_fields]
+                
+                # Determine minimum group size (k value)
+                k_value = options.parameters.get("k_value", 1) if options.parameters else 1
+                
+                # Group by quasi-identifiers and aggregate sensitive fields
+                if quasi_identifiers:
+                    # Create a copy for the aggregation
+                    agg_df = df.copy()
+                    
+                    # For each sensitive field, replace values with aggregated values
+                    for field in sensitive_fields:
+                        if field in df.columns and pd.api.types.is_numeric_dtype(df[field]):
+                            # For numeric fields, use mean or median
+                            grouped = df.groupby(quasi_identifiers)[field]
+                            group_sizes = grouped.size()
+                            
+                            # Only aggregate groups meeting k-anonymity threshold
+                            valid_groups = group_sizes[group_sizes >= k_value].index
+                            
+                            # Create aggregation
+                            agg_values = grouped.mean() if field.endswith("_mean") else grouped.median()
+                            
+                            # Apply aggregation to each group
+                            for idx in valid_groups:
+                                # Handle both single and multiple quasi-identifiers
+                                if len(quasi_identifiers) == 1:
+                                    mask = df[quasi_identifiers[0]] == idx
+                                else:
+                                    mask = True
+                                    for i, qi in enumerate(quasi_identifiers):
+                                        mask &= df[qi] == idx[i] if isinstance(idx, tuple) else idx
+                                
+                                # Apply aggregated value
+                                agg_df.loc[mask, field] = agg_values.loc[idx]
+                    
+                    df = agg_df
+                    
+            elif options.method == "k_anonymity":
+                if not options.quasi_identifiers or not options.sensitive_fields:
+                    raise ValueError("Both quasi-identifiers and sensitive fields are required for k-anonymity")
+                
+                # Determine k value (minimum group size)
+                k_value = options.parameters.get("k_value", 5) if options.parameters else 5
+                
+                # Implement a simplified k-anonymity algorithm
+                # This is a basic implementation - in practice, more sophisticated algorithms would be used
+                
+                # 1. Create a copy of the dataframe for anonymization
+                anon_df = df.copy()
+                
+                # 2. For each quasi-identifier, apply generalization
+                for qi in options.quasi_identifiers:
+                    if qi in df.columns:
+                        if pd.api.types.is_numeric_dtype(df[qi]):
                             # For numeric columns, bin the data
-                            level = level or 5  # Default to 5 bins if not specified
-                            df[col] = pd.cut(df[col], bins=level, labels=False)
-                        elif pd.api.types.is_datetime64_dtype(df[col]) or pd.api.types.is_datetime64_any_dtype(df[col]):
-                            # For date columns, truncate to year, month, etc.
-                            level = level or "month"  # Default to month
-                            if level == "year":
-                                df[col] = pd.to_datetime(df[col]).dt.year
-                            elif level == "month":
-                                df[col] = pd.to_datetime(df[col]).dt.strftime("%Y-%m")
-                            elif level == "day":
-                                df[col] = pd.to_datetime(df[col]).dt.strftime("%Y-%m-%d")
+                            # Increase bin size until k-anonymity is achieved
+                            bins = 5  # Start with 5 bins
+                            while bins > 1:
+                                anon_df[qi] = pd.cut(df[qi], bins=bins, labels=False)
+                                
+                                # Check if k-anonymity is satisfied
+                                group_counts = anon_df.groupby(options.quasi_identifiers).size()
+                                if group_counts.min() >= k_value:
+                                    break
+                                
+                                # Reduce number of bins to make groups larger
+                                bins = max(1, bins - 1)
+                        
+                        elif pd.api.types.is_datetime64_dtype(df[qi]) or pd.api.types.is_datetime64_any_dtype(df[qi]):
+                            # For date columns, generalize by truncating to year, then year-month if needed
+                            anon_df[qi] = pd.to_datetime(df[qi]).dt.strftime("%Y")
+                            
+                            # Check if k-anonymity is satisfied
+                            group_counts = anon_df.groupby(options.quasi_identifiers).size()
+                            if group_counts.min() < k_value:
+                                # Try year-month format for more specificity
+                                anon_df[qi] = pd.to_datetime(df[qi]).dt.strftime("%Y-%m")
+                                
+                                # Check again and fall back to year if needed
+                                group_counts = anon_df.groupby(options.quasi_identifiers).size()
+                                if group_counts.min() < k_value:
+                                    anon_df[qi] = pd.to_datetime(df[qi]).dt.strftime("%Y")
+                        
                         else:
-                            # For categorical/string columns, take first n characters
-                            n = level or 1
-                            df[col] = df[col].astype(str).str[:n]
-            
-            elif options.method == "masking":
-                for col in options.columns:
-                    if col in df.columns:
-                        # Replace with mask character
-                        mask_char = options.mask_character or "*"
-                        df[col] = mask_char * 5  # Simple masking
-            
-            elif options.method == "suppression":
-                # Drop the specified columns
-                df = df.drop(columns=[col for col in options.columns if col in df.columns])
+                            # For string/categorical columns, keep first n characters
+                            # Start with full string and reduce until k-anonymity is achieved
+                            max_length = df[qi].astype(str).str.len().max()
+                            length = max(1, max_length)
+                            
+                            while length > 0:
+                                anon_df[qi] = df[qi].astype(str).str[:length]
+                                
+                                # Check if k-anonymity is satisfied
+                                group_counts = anon_df.groupby(options.quasi_identifiers).size()
+                                if group_counts.min() >= k_value:
+                                    break
+                                
+                                # Reduce length to make groups larger
+                                length = max(0, length - 1)
+                            
+                            # If we couldn't achieve k-anonymity, suppress the column
+                            if length == 0:
+                                anon_df[qi] = "*"
+                
+                # 3. After generalization, check if we achieved k-anonymity
+                group_counts = anon_df.groupby(options.quasi_identifiers).size()
+                
+                if group_counts.min() < k_value:
+                    # If k-anonymity still not achieved, suppress small groups
+                    for idx, count in group_counts.items():
+                        if count < k_value:
+                            # Create mask for this group
+                            if len(options.quasi_identifiers) == 1:
+                                mask = anon_df[options.quasi_identifiers[0]] == idx
+                            else:
+                                mask = True
+                                for i, qi in enumerate(options.quasi_identifiers):
+                                    mask &= anon_df[qi] == idx[i] if isinstance(idx, tuple) else idx
+                            
+                            # Suppress sensitive fields for small groups
+                            for field in options.sensitive_fields:
+                                if field in anon_df.columns:
+                                    anon_df.loc[mask, field] = "*"
+                
+                # Use the anonymized dataframe
+                df = anon_df
             
             # Save anonymized dataset
             dataset_dir = os.path.dirname(file_path)
             anonymized_file_path = os.path.join(dataset_dir, "anonymized_data.csv")
             df.to_csv(anonymized_file_path, index=False)
             
+            # Save mappings if available and requested
+            if mappings and options.parameters and options.parameters.get("keep_mapping", True):
+                mappings_file_path = os.path.join(dataset_dir, "anonymization_mappings.json")
+                with open(mappings_file_path, 'w') as f:
+                    json.dump(mappings, f, indent=2)
+            
             # Update dataset record
             anonymization_details = options.dict()
             anonymization_details["timestamp"] = datetime.now().isoformat()
+            
+            # Include mapping path in metadata if mapping was saved
+            if mappings and options.parameters and options.parameters.get("keep_mapping", True):
+                anonymization_details["mapping_file_path"] = mappings_file_path
             
             update_data = {
                 "status": "Anonymized",
                 "anonymized_file_path": anonymized_file_path,
                 "columns": df.columns.tolist(),
+                "row_count": len(df),
                 "metadata": {
                     **(dataset.metadata or {}),
                     "anonymization": anonymization_details
