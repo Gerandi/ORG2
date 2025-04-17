@@ -7,7 +7,7 @@ interface AuthContextProps {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: { email: string; password: string }) => Promise<void>;
   register: (data: RegisterData) => Promise<boolean>;
   logout: (allDevices?: boolean) => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -22,7 +22,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
-  const login = useCallback(async (credentials: LoginCredentials): Promise<void> => {
+  const login = useCallback(async (credentials: { email: string; password: string }): Promise<void> => {
     setIsLoading(true);
     setError(null);
     
@@ -53,8 +53,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       
       try {
         console.log('AuthContext: Attempting login after registration');
-        // Automatically log in after registration
-        await login({ username: data.username, password: data.password });
+        // Automatically log in after registration using email
+        await login({ email: data.email, password: data.password });
         return true;
       } catch (loginErr: any) {
         console.error('AuthContext: Auto-login after registration failed:', loginErr);

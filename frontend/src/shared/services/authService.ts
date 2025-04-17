@@ -64,13 +64,14 @@ class AuthService {
     const formData = new URLSearchParams();
     // Use standard OAuth2 fields exactly as the Swagger UI uses
     formData.append('grant_type', 'password');
-    formData.append('username', credentials.username);
+    // IMPORTANT: Keep 'username' as the key, but pass the email value
+    formData.append('username', credentials.email);
     formData.append('password', credentials.password);
     formData.append('scope', '');
     formData.append('client_id', 'string');
     formData.append('client_secret', 'string');
     
-    console.log('Attempting login with credentials:', credentials.username);
+    console.log('Attempting login with email:', credentials.email);
     
     try {
       // First try enhanced endpoint with access & refresh tokens

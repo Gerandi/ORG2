@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuthContext } from '../contexts/AuthContext';
-import { LoginCredentials, RegisterData, User } from '../../types/auth';
+import { RegisterData, User } from '../../types/auth';
 
 export const useAuth = () => {
   const {
@@ -20,7 +20,7 @@ export const useAuth = () => {
   const [processing, setProcessing] = useState<boolean>(false);
 
   // Handle login with error handling
-  const handleLogin = useCallback(async (credentials: LoginCredentials) => {
+  const handleLogin = useCallback(async (credentials: { email: string; password: string }) => {
     setProcessing(true);
     setFormError(null);
     
@@ -37,7 +37,7 @@ export const useAuth = () => {
         console.error('Error response:', error.response.status, error.response.data);
         
         if (error.response.data?.detail === "LOGIN_BAD_CREDENTIALS") {
-          setFormError('Invalid username or password. Please try again.');
+          setFormError('Invalid email or password. Please try again.');
         } else if (error.response.data?.detail) {
           setFormError(error.response.data.detail);
         }
@@ -58,7 +58,7 @@ export const useAuth = () => {
     setFormError(null);
     
     try {
-      console.log('Handling registration for:', userData.username);
+      console.log('Handling registration for:', userData.email);
       
       // Add timestamps if missing from data
       const enrichedUserData = {

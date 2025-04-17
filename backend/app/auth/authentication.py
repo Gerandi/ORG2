@@ -11,7 +11,7 @@ from fastapi_users.authentication import (
     BearerTransport, 
     JWTStrategy,
 )
-from fastapi_users.manager import BaseUserManager, UUIDIDMixin
+from fastapi_users.manager import BaseUserManager, IntegerIDMixin
 from passlib.context import CryptContext
 import jwt
 from pydantic import EmailStr
@@ -42,7 +42,7 @@ REFRESH_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30 * 3  # 90 days
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
-class UserManager(BaseUserManager[User, int]):
+class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
     """User manager for authentication and user operations."""
     
     reset_password_token_secret = SECRET

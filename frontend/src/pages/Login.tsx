@@ -7,13 +7,13 @@ import { Card } from '../components/atoms/Card';
 import { Typography } from '../components/atoms/Typography';
 
 const Login: React.FC = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
   // Helper function to use admin account
   const useAdminAccount = () => {
-    setUsername('admin@orgai.com');
+    setEmail('admin@orgai.com');
     setPassword('admin123');
   };
   
@@ -25,8 +25,8 @@ const Login: React.FC = () => {
     setLocalError(null);
     
     // Basic field validation
-    if (!username.trim()) {
-      setLocalError('Username is required');
+    if (!email.trim()) {
+      setLocalError('Email is required');
       return;
     }
     
@@ -36,14 +36,14 @@ const Login: React.FC = () => {
     }
     
     try {
-      console.log('Login attempt with username:', username);
-      const success = await login({ username, password });
+      console.log('Login attempt with email:', email);
+      const success = await login({ email, password });
       
       if (success) {
         console.log('Login successful, navigating to dashboard');
         navigate('/dashboard');
       } else {
-        setLocalError('Invalid username or password. Please try again.');
+        setLocalError('Invalid email or password. Please try again.');
       }
     } catch (err: any) {
       console.error('Login error:', err);
@@ -94,20 +94,20 @@ const Login: React.FC = () => {
           
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                Username
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email
               </label>
               <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 fullWidth
                 autoFocus
-                placeholder="Enter your username"
+                placeholder="Enter your email"
                 className="w-full"
-                aria-label="Username"
+                aria-label="Email"
                 disabled={isLoading}
               />
             </div>
