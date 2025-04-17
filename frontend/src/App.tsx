@@ -6,6 +6,7 @@ import { DataProvider } from './shared/contexts/DataContext';
 import { NetworkProvider } from './shared/contexts/NetworkContext';
 import { MLProvider } from './shared/contexts/MLContext';
 import { ABMProvider } from './shared/contexts/ABMContext';
+import { UIProvider } from './shared/contexts/UIContext';
 
 function App() {
   return (
@@ -15,7 +16,9 @@ function App() {
           <NetworkProvider>
             <MLProvider>
               <ABMProvider>
-                <AppRouter />
+                <UIProvider>
+                  <AppRouter />
+                </UIProvider>
               </ABMProvider>
             </MLProvider>
           </NetworkProvider>

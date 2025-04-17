@@ -4,6 +4,7 @@ export interface DropdownMenuProps {
   trigger: React.ReactNode;
   children: React.ReactNode;
   align?: 'left' | 'right';
+  direction?: 'up' | 'down';
   className?: string;
 }
 
@@ -11,6 +12,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   trigger,
   children,
   align = 'right',
+  direction = 'down',
   className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -44,7 +46,9 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       {/* Dropdown content */}
       {isOpen && (
         <div 
-          className={`absolute z-10 mt-1 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none py-1 ${
+          className={`absolute z-10 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none py-1 ${
+            direction === 'up' ? 'bottom-full mb-1' : 'mt-1'
+          } ${
             align === 'right' ? 'right-0' : 'left-0'
           }`}
         >

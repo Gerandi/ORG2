@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Database, 
@@ -7,8 +7,13 @@ import {
   BarChart2, 
   Users, 
   Settings, 
-  HelpCircle 
+  HelpCircle,
+  User,
+  LogOut
 } from 'lucide-react';
+import DropdownMenu from '../../molecules/DropdownMenu';
+import Button from '../../atoms/Button';
+import { useAuthContext } from '../../../shared/contexts/AuthContext';
 
 export interface SidebarItem {
   path: string;
@@ -21,6 +26,31 @@ export interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
+  const { user, logout } = useAuthContext();
+  
+  // Function to get user initials from name or email
+  const getUserInitials = () => {
+    if (!user) return '';
+    
+    if (user.name) {
+      return user.name
+        .split(' ')
+        .map(name => name[0])
+        .join('')
+        .toUpperCase();
+    }
+    
+    if (user.username) {
+      return user.username.substring(0, 2).toUpperCase();
+    }
+    
+    if (user.email) {
+      return user.email.substring(0, 2).toUpperCase();
+    }
+    
+    return 'U';
+  };
+
   // Sidebar navigation items
   const mainItems: SidebarItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
@@ -76,19 +106,49 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
         </nav>
       </div>
       
-      <div className="p-4 border-t border-gray-700">
-        <div className="text-sm">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-              <span className="font-semibold">AR</span>
-            </div>
-            <div className="ml-2">
-              <div className="font-medium">Academic Researcher</div>
-              <div className="text-xs text-gray-400">Research Institution</div>
-            </div>
-          </div>
+      {user && (
+        <div className="p-4 border-t border-gray-700">
+          <DropdownMenu
+            direction="up"
+            align="left"
+            className="w-full"
+            trigger={
+              <div className="flex items-center w-full">
+                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium mr-2">
+                  {getUserInitials()}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium">{user.name || user.username || 'User'}</div>
+                  {user.email && <div className="text-xs text-gray-400">{user.email}</div>}
+                </div>
+              </div>
+            }
+          >
+            <Link
+              to="/profile"
+              className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <User size={16} className="mr-2" />
+              Profile
+            </Link>
+            <Link
+              to="/settings"
+              className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <Settings size={16} className="mr-2" />
+              Settings
+            </Link>
+            <Button
+              variant="ghost"
+              className="flex items-center justify-start w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+              onClick={() => logout()}
+            >
+              <LogOut size={16} className="mr-2" />
+              Sign out
+            </Button>
+          </DropdownMenu>
         </div>
-      </div>
+      )}
     </div>
   );
 };

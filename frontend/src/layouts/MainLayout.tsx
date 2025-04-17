@@ -5,6 +5,9 @@ import { useDataContext } from '../shared/contexts/DataContext';
 import { useNetworkContext } from '../shared/contexts/NetworkContext';
 import { useMLContext } from '../shared/contexts/MLContext';
 import { useABMContext } from '../shared/contexts/ABMContext';
+import { useUIContext } from '../shared/contexts/UIContext';
+import ProjectCreationModal from '../components/organisms/ProjectModals/ProjectCreationModal';
+import { useProjectContext } from '../shared/contexts/ProjectContext';
 
 const getTitleFromPath = (path: string): string => {
   // Map routes to page titles
@@ -25,17 +28,14 @@ const getTitleFromPath = (path: string): string => {
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const title = getTitleFromPath(location.pathname);
+  const { isCreateProjectModalOpen, closeCreateProjectModal } = useUIContext();
+  const { fetchProjects } = useProjectContext();
   
   // Get contexts to handle project filtering
   const { fetchDatasets } = useDataContext();
   const { fetchNetworks } = useNetworkContext();
   const { fetchModels: fetchMLModels } = useMLContext();
   const { fetchModels: fetchABMModels, fetchSimulations } = useABMContext();
-  
-  const handleCreateProject = () => {
-    // This would open a modal or navigate to project creation page
-    console.log('Create project clicked');
-  };
   
   const handleProjectChange = useCallback(async (projectId: number | null) => {
     // When project changes, refresh data from all contexts with the new project filter
@@ -58,7 +58,6 @@ const MainLayout: React.FC = () => {
         {/* Header */}
         <Header 
           title={title}
-          onCreateProject={handleCreateProject}
           onProjectChange={handleProjectChange}
         />
         
@@ -66,6 +65,17 @@ const MainLayout: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>
+
+        {/* Project Creation Modal - conditionally rendered */}
+        {isCreateProjectModalOpen && (
+          <ProjectCreationModal
+            onClose={closeCreateProjectModal}
+            onSuccess={() => {
+              fetchProjects(); // Refresh project list after creation
+              closeCreateProjectModal();
+            }}
+          />
+        )}
       </div>
     </div>
   );
