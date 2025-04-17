@@ -39,9 +39,10 @@ class ABMService {
   }
   
   // Get all ABM models
-  public async getModels(): Promise<ABMModel[]> {
+  public async getModels(projectId?: number): Promise<ABMModel[]> {
     try {
-      return await apiService.get<ABMModel[]>(`${this.baseUrl}/models`);
+      const url = projectId ? `${this.baseUrl}/models?project_id=${projectId}` : `${this.baseUrl}/models`;
+      return await apiService.get<ABMModel[]>(url);
     } catch (error) {
       console.error('Error fetching ABM models:', error);
       throw error;
@@ -89,9 +90,10 @@ class ABMService {
   }
   
   // Get all simulations
-  public async getSimulations(): Promise<Simulation[]> {
+  public async getSimulations(projectId?: number): Promise<Simulation[]> {
     try {
-      return await apiService.get<Simulation[]>(`${this.baseUrl}/simulations`);
+      const url = projectId ? `${this.baseUrl}/simulations?project_id=${projectId}` : `${this.baseUrl}/simulations`;
+      return await apiService.get<Simulation[]>(url);
     } catch (error) {
       console.error('Error fetching simulations:', error);
       throw error;

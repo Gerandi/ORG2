@@ -26,9 +26,10 @@ class NetworkService {
   }
   
   // Get all network models
-  public async getNetworks(): Promise<NetworkModel[]> {
+  public async getNetworks(projectId?: number): Promise<NetworkModel[]> {
     try {
-      return await apiService.get<NetworkModel[]>(this.baseUrl);
+      const url = projectId ? `${this.baseUrl}?project_id=${projectId}` : this.baseUrl;
+      return await apiService.get<NetworkModel[]>(url);
     } catch (error) {
       console.error('Error fetching networks:', error);
       throw error;

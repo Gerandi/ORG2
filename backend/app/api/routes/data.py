@@ -24,13 +24,27 @@ router = APIRouter(
 
 @router.get("/", response_model=List[DatasetSchema])
 async def get_datasets(
+    project_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
     """
     Retrieve all datasets.
     """
-    return await DataService.get_datasets(db)
+    # Implement authorization filter
+    if user.is_superuser:
+        query = select(Dataset)
+    else:
+        query = select(Dataset).where(Dataset.user_id == user.id)
+    
+    # Add project filter if provided
+    if project_id is not None:
+        query = query.where(Dataset.project_id == project_id)
+    
+    result = await db.execute(query)
+    datasets = result.scalars().all()
+    
+    return datasets
 
 @router.get("/{dataset_id}", response_model=DatasetSchema)
 async def get_dataset(

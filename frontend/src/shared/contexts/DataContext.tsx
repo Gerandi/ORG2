@@ -25,7 +25,7 @@ interface DataContextProps {
   dataStats: DatasetStats | null;
   isLoading: boolean;
   error: string | null;
-  fetchDatasets: () => Promise<void>;
+  fetchDatasets: (projectId?: number) => Promise<void>;
   selectDataset: (id: number) => Promise<void>;
   createDataset: (dataset: Partial<Dataset>) => Promise<void>;
   updateDataset: (id: number, dataset: Partial<Dataset>) => Promise<void>;
@@ -49,12 +49,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  const fetchDatasets = useCallback(async (): Promise<void> => {
+  const fetchDatasets = useCallback(async (projectId?: number): Promise<void> => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const data = await dataService.getDatasets();
+      const data = await dataService.getDatasets(projectId);
       setDatasets(data);
     } catch (err) {
       setError('Failed to fetch datasets');

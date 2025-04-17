@@ -23,6 +23,7 @@ router = APIRouter(
 
 @router.get("/models", response_model=List[MLModelSchema])
 async def get_models(
+    project_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
@@ -35,6 +36,10 @@ async def get_models(
             query = select(MLModel).options(selectinload(MLModel.datasets))
         else:
             query = select(MLModel).options(selectinload(MLModel.datasets)).where(MLModel.user_id == user.id)
+        
+        # Add project filter if provided
+        if project_id is not None:
+            query = query.where(MLModel.project_id == project_id)
         
         result = await db.execute(query)
         models = result.scalars().all()

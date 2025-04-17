@@ -29,9 +29,10 @@ class DataService {
   }
   
   // Get all datasets
-  public async getDatasets(): Promise<Dataset[]> {
+  public async getDatasets(projectId?: number): Promise<Dataset[]> {
     try {
-      const datasets = await apiService.get<Dataset[]>(this.baseUrl);
+      const url = projectId ? `${this.baseUrl}?project_id=${projectId}` : this.baseUrl;
+      const datasets = await apiService.get<Dataset[]>(url);
       return datasets || [];
     } catch (error) {
       console.error('Error fetching datasets:', error);

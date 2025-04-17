@@ -12,7 +12,7 @@ interface NetworkContextProps {
   visualizationOptions: VisualizationOptions;
   isLoading: boolean;
   error: string | null;
-  fetchNetworks: () => Promise<void>;
+  fetchNetworks: (projectId?: number) => Promise<void>;
   selectNetwork: (id: number) => Promise<void>;
   createNetwork: (network: Partial<NetworkModel>) => Promise<void>;
   updateNetwork: (id: number, network: Partial<NetworkModel>) => Promise<void>;
@@ -62,12 +62,12 @@ export const NetworkProvider: React.FC<{children: React.ReactNode}> = ({ childre
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  const fetchNetworks = useCallback(async (): Promise<void> => {
+  const fetchNetworks = useCallback(async (projectId?: number): Promise<void> => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const data = await networkService.getNetworks();
+      const data = await networkService.getNetworks(projectId);
       setNetworks(data);
     } catch (err) {
       setError('Failed to fetch networks');

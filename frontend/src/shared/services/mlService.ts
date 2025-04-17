@@ -32,9 +32,10 @@ class MLService {
   }
   
   // Get all ML models
-  public async getModels(): Promise<MLModel[]> {
+  public async getModels(projectId?: number): Promise<MLModel[]> {
     try {
-      return await apiService.get<MLModel[]>(`${this.baseUrl}/models`);
+      const url = projectId ? `${this.baseUrl}/models?project_id=${projectId}` : `${this.baseUrl}/models`;
+      return await apiService.get<MLModel[]>(url);
     } catch (error) {
       console.error('Error fetching ML models:', error);
       throw error;

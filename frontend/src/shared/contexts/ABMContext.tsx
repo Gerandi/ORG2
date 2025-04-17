@@ -12,12 +12,12 @@ interface ABMContextProps {
   theories: Theory[];
   isLoading: boolean;
   error: string | null;
-  fetchModels: () => Promise<void>;
+  fetchModels: (projectId?: number) => Promise<void>;
   selectModel: (id: number) => Promise<void>;
   createModel: (model: Partial<ABMModel>) => Promise<void>;
   updateModel: (id: number, model: Partial<ABMModel>) => Promise<void>;
   deleteModel: (id: number) => Promise<void>;
-  fetchSimulations: () => Promise<void>;
+  fetchSimulations: (projectId?: number) => Promise<void>;
   selectSimulation: (id: number) => Promise<void>;
   createSimulation: (simulation: Partial<Simulation>) => Promise<void>;
   runSimulation: (id: number, steps?: number) => Promise<void>;
@@ -38,12 +38,12 @@ export const ABMProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  const fetchModels = useCallback(async (): Promise<void> => {
+  const fetchModels = useCallback(async (projectId?: number): Promise<void> => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const data = await abmService.getModels();
+      const data = await abmService.getModels(projectId);
       setModels(data);
     } catch (err) {
       setError('Failed to fetch ABM models');
@@ -121,12 +121,12 @@ export const ABMProvider: React.FC<{children: React.ReactNode}> = ({ children })
     }
   }, [selectedModel?.id]);
   
-  const fetchSimulations = useCallback(async (): Promise<void> => {
+  const fetchSimulations = useCallback(async (projectId?: number): Promise<void> => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const data = await abmService.getSimulations();
+      const data = await abmService.getSimulations(projectId);
       setSimulations(data);
     } catch (err) {
       setError('Failed to fetch simulations');

@@ -21,12 +21,19 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
   const [localError, setLocalError] = useState<string | null>(null);
 
   const { uploadDataset, isLoading, error } = useDataContext();
-  const { projects, fetchProjects, isLoading: isLoadingProjects } = useProjectContext();
+  const { projects, fetchProjects, selectedProject, isLoading: isLoadingProjects } = useProjectContext();
 
   // Ensure projects are loaded when the modal opens
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  // Set the selected project as default when modal opens
+  useEffect(() => {
+    if (selectedProject) {
+      setSelectedProjectId(selectedProject.id.toString());
+    }
+  }, [selectedProject]);
 
   useEffect(() => {
     // Reset state when modal is closed

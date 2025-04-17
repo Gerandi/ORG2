@@ -23,6 +23,7 @@ router = APIRouter(
 
 @router.get("/models", response_model=List[ABMModelSchema])
 async def get_models(
+    project_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
@@ -34,6 +35,10 @@ async def get_models(
         query = select(ABMModel)
     else:
         query = select(ABMModel).where(ABMModel.user_id == user.id)
+    
+    # Add project filter if provided
+    if project_id is not None:
+        query = query.where(ABMModel.project_id == project_id)
     
     result = await db.execute(query)
     models = result.scalars().all()
@@ -165,17 +170,30 @@ async def delete_model(
 
 @router.get("/simulations", response_model=List[SimulationSchema])
 async def get_simulations(
+    project_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
     """
     Retrieve all ABM simulations.
     """
-    # Implement authorization filter
+    # Base query with authorization filter
     if user.is_superuser:
         query = select(ABMSimulation)
     else:
         query = select(ABMSimulation).where(ABMSimulation.user_id == user.id)
+    
+    # Add project filter if provided
+    # For simulations, we need to join with ABMModel to filter by project_id
+    if project_id is not None:
+        query = (
+            select(ABMSimulation)
+            .join(ABMModel, ABMSimulation.model_id == ABMModel.id)
+            .where(ABMModel.project_id == project_id)
+        )
+        # Re-apply authorization filter after join
+        if not user.is_superuser:
+            query = query.where(ABMSimulation.user_id == user.id)
     
     result = await db.execute(query)
     simulations = result.scalars().all()

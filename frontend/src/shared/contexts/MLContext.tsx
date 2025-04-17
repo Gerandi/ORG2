@@ -10,7 +10,7 @@ interface MLContextProps {
   featureImportance: FeatureImportance | null;
   isLoading: boolean;
   error: string | null;
-  fetchModels: () => Promise<void>;
+  fetchModels: (projectId?: number) => Promise<void>;
   selectModel: (id: number) => Promise<void>;
   createModel: (model: Partial<MLModel>) => Promise<void>;
   updateModel: (id: number, model: Partial<MLModel>) => Promise<void>;
@@ -32,12 +32,12 @@ export const MLProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  const fetchModels = useCallback(async (): Promise<void> => {
+  const fetchModels = useCallback(async (projectId?: number): Promise<void> => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const data = await mlService.getModels();
+      const data = await mlService.getModels(projectId);
       setModels(data);
     } catch (err) {
       setError('Failed to fetch ML models');

@@ -10,7 +10,8 @@ import DatasetPreview from '../components/organisms/DatasetPreview';
 import DataProcessingForm from '../components/organisms/DataProcessingForm';
 import AnonymizationForm from '../components/organisms/AnonymizationForm';
 import TieStrengthDefinitionForm from '../components/organisms/TieStrengthDefinition';
-import { useDataContext } from '../shared/contexts';
+import { useDataContext } from '../shared/contexts/DataContext';
+import { useProjectContext } from '../shared/contexts/ProjectContext';
 
 const DataManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState('datasets');
@@ -33,10 +34,13 @@ const DataManagement: React.FC = () => {
     dataService
   } = useDataContext();
 
-  // Load datasets on component mount
+  // Get the currently selected project from the project context
+  const { selectedProject } = useProjectContext();
+
+  // Load datasets on component mount and when the selected project changes
   useEffect(() => {
-    fetchDatasets();
-  }, [fetchDatasets]);
+    fetchDatasets(selectedProject?.id);
+  }, [fetchDatasets, selectedProject]);
 
   // Filter datasets based on search term
   const filteredDatasets = datasets.filter(dataset => 

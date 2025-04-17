@@ -27,6 +27,7 @@ router = APIRouter(
 
 @router.get("/", response_model=List[NetworkSchema])
 async def get_networks(
+    project_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
@@ -38,6 +39,10 @@ async def get_networks(
         query = select(Network)
     else:
         query = select(Network).where(Network.user_id == user.id)
+    
+    # Add project filter if provided
+    if project_id is not None:
+        query = query.where(Network.project_id == project_id)
     
     result = await db.execute(query)
     networks = result.scalars().all()

@@ -1,21 +1,27 @@
 import React from 'react';
 import Button from '../../atoms/Button';
 import { PlusCircle, Bell, Search } from 'lucide-react';
+import ProjectSelector from './ProjectSelector';
 
 export interface HeaderProps {
   title: string;
   onCreateProject?: () => void;
+  onProjectChange?: (projectId: number | null) => void;
   className?: string;
 }
 
 const Header: React.FC<HeaderProps> = ({
   title,
   onCreateProject,
+  onProjectChange,
   className = '',
 }) => {
   return (
     <header className={`bg-white shadow-sm px-6 py-3 flex items-center justify-between ${className}`}>
-      <h2 className="text-lg font-medium">{title}</h2>
+      <div className="flex items-center">
+        <h2 className="text-lg font-medium">{title}</h2>
+        <ProjectSelector onProjectChange={onProjectChange} />
+      </div>
       
       <div className="flex items-center space-x-4">
         {/* Search */}
