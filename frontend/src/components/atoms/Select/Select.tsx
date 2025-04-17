@@ -24,6 +24,16 @@ const Select: React.FC<SelectProps> = ({
   const widthClass = fullWidth ? 'w-full' : '';
   const errorClass = error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300';
   
+  // Add defensive check for undefined options
+  if (!options) {
+    console.warn("Select component received undefined options prop. Rendering disabled select.");
+    return (
+      <select className={`${baseClasses} ${widthClass} ${className} bg-gray-100 cursor-not-allowed`} disabled>
+        <option>Loading...</option>
+      </select>
+    );
+  }
+  
   const selectClasses = `
     ${baseClasses}
     ${widthClass}

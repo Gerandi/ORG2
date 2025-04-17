@@ -71,12 +71,19 @@ const DataManagement: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     if (confirmDelete) {
-      await deleteDataset(confirmDelete);
-      setConfirmDelete(null);
-      
-      if (selectedDatasetId === confirmDelete) {
-        setViewMode('list');
-        setSelectedDatasetId(null);
+      try {
+        await deleteDataset(confirmDelete);
+        
+        if (selectedDatasetId === confirmDelete) {
+          setViewMode('list');
+          setSelectedDatasetId(null);
+        }
+      } catch (err) {
+        // Error is already handled in the deleteDataset function in DataContext
+        // which sets the appropriate error message for 403 errors
+        console.error('Error deleting dataset:', err);
+      } finally {
+        setConfirmDelete(null);
       }
     }
   };

@@ -32,7 +32,7 @@ interface DataContextProps {
   deleteDataset: (id: number) => Promise<void>;
   processDataset: (id: number, options: ProcessingOptions) => Promise<void>;
   anonymizeDataset: (id: number, options: AnonymizationOptions) => Promise<void>;
-  uploadDataset: (file: File, name?: string) => Promise<void>;
+  uploadDataset: (file: File, name?: string, projectId?: number | null) => Promise<void>;
   defineTieStrength: (id: number, definition: TieStrengthDefinition) => Promise<void>;
   getDatasetPreview: (id: number, limit?: number) => Promise<void>;
   getDatasetStats: (id: number) => Promise<void>;
@@ -158,7 +158,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setSelectedDataset(null);
       }
     } catch (err) {
-      setError('Failed to delete dataset');
+      // Improved error handling for 403 errors
+      if (err.response && err.response.status === 403) {
+        setError("You don't have permission to delete this dataset");
+      } else {
+        setError('Failed to delete dataset');
+      }
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -177,7 +182,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setSelectedDataset(updatedDataset);
       }
     } catch (err) {
-      setError('Failed to process dataset');
+      // Improved error handling for 403 errors
+      if (err.response && err.response.status === 403) {
+        setError("You don't have permission to process this dataset");
+      } else {
+        setError('Failed to process dataset');
+      }
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -196,19 +206,25 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setSelectedDataset(updatedDataset);
       }
     } catch (err) {
-      setError('Failed to anonymize dataset');
+      // Improved error handling for 403 errors
+      if (err.response && err.response.status === 403) {
+        setError("You don't have permission to anonymize this dataset");
+      } else {
+        setError('Failed to anonymize dataset');
+      }
       console.error(err);
     } finally {
       setIsLoading(false);
     }
   }, [selectedDataset?.id]);
   
-  const uploadDataset = useCallback(async (file: File, name?: string): Promise<void> => {
+  const uploadDataset = useCallback(async (file: File, name?: string, projectId?: number | null): Promise<void> => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const newDataset = await dataService.uploadDataset(file, name);
+      // Pass projectId to the dataService
+      const newDataset = await dataService.uploadDataset(file, name, projectId);
       setDatasets(prevDatasets => [...prevDatasets, newDataset]);
     } catch (err) {
       setError('Failed to upload dataset');
@@ -230,7 +246,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setSelectedDataset(updatedDataset);
       }
     } catch (err) {
-      setError('Failed to define tie strength');
+      // Improved error handling for 403 errors
+      if (err.response && err.response.status === 403) {
+        setError("You don't have permission to modify this dataset's tie strength");
+      } else {
+        setError('Failed to define tie strength');
+      }
       console.error(err);
     } finally {
       setIsLoading(false);

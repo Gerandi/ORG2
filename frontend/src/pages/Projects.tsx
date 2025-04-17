@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, FileText, Edit, Trash } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useProjectContext } from '../shared/contexts/ProjectContext';
 import Card from '../components/atoms/Card';
 import { Heading, Text } from '../components/atoms/Typography';
 import Button from '../components/atoms/Button';
 import { ProjectType } from '../types/project';
+import ProjectCreationModal from '../components/organisms/ProjectModals/ProjectCreationModal';
 
 const ProjectTypeLabel: React.FC<{ type: ProjectType }> = ({ type }) => {
   const typeColors = {
@@ -22,21 +24,44 @@ const ProjectTypeLabel: React.FC<{ type: ProjectType }> = ({ type }) => {
 };
 
 const ProjectsPage: React.FC = () => {
-  const { projects, isLoading, error, fetchProjects, deleteProject } = useProjectContext();
+  const navigate = useNavigate();
+  const { projects, isLoading, error, fetchProjects, deleteProject, selectProject } = useProjectContext();
+  
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   
   // Load projects on component mount
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
   
+  const handleCreateProject = () => {
+    setShowCreateModal(true);
+  };
+  
+  const handleCreateSuccess = () => {
+    fetchProjects();
+  };
+  
+  const handleViewProject = async (projectId: number) => {
+    await selectProject(projectId);
+    // Navigate to a project detail page or set it as the active project globally
+    // For now, we'll just log it
+    console.log(`Selected project: ${projectId}`);
+  };
+  
   const handleDeleteClick = (projectId: number) => {
     setShowDeleteConfirm(projectId);
   };
   
   const confirmDelete = async (projectId: number) => {
-    await deleteProject(projectId);
-    setShowDeleteConfirm(null);
+    try {
+      await deleteProject(projectId);
+    } catch (err) {
+      console.error('Error deleting project:', err);
+    } finally {
+      setShowDeleteConfirm(null);
+    }
   };
   
   const cancelDelete = () => {
@@ -47,25 +72,25 @@ const ProjectsPage: React.FC = () => {
     return <div className="flex justify-center p-8">Loading projects...</div>;
   }
   
-  if (error) {
-    return (
-      <div className="p-8">
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
-          {error}
-        </div>
-      </div>
-    );
-  }
-  
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <Heading level={2}>Research Projects</Heading>
-        <Button variant="primary" className="flex items-center">
+        <Button 
+          variant="primary" 
+          className="flex items-center"
+          onClick={handleCreateProject}
+        >
           <Plus size={16} className="mr-1" />
           New Project
         </Button>
       </div>
+      
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
+          {error}
+        </div>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map(project => (
@@ -100,7 +125,12 @@ const ProjectsPage: React.FC = () => {
                 Last updated: {new Date(project.updated_at).toLocaleDateString()}
               </Text>
               
-              <Button variant="outline" size="sm" className="flex items-center">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center"
+                onClick={() => handleViewProject(project.id)}
+              >
                 <FileText size={14} className="mr-1" />
                 View
               </Button>
@@ -145,6 +175,14 @@ const ProjectsPage: React.FC = () => {
             Create your first research project to get started.
           </Text>
         </Card>
+      )}
+      
+      {/* Project Creation Modal */}
+      {showCreateModal && (
+        <ProjectCreationModal 
+          onClose={() => setShowCreateModal(false)} 
+          onSuccess={handleCreateSuccess}
+        />
       )}
     </div>
   );

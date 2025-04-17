@@ -6,7 +6,7 @@ import Tabs from '../molecules/Tabs';
 import FileUploader from '../molecules/FileUploader';
 import Input from '../atoms/Input';
 import { useDataContext, useProjectContext } from '../../shared/contexts';
-import Select from '../atoms/Select';
+import Select, { SelectOption } from '../atoms/Select/Select';
 
 interface DataUploadModalProps {
   onClose: () => void;
@@ -17,18 +17,23 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
   const [activeTab, setActiveTab] = useState('file-upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [datasetName, setDatasetName] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [localError, setLocalError] = useState<string | null>(null);
 
   const { uploadDataset, isLoading, error } = useDataContext();
-  const { projects } = useProjectContext();
+  const { projects, fetchProjects, isLoading: isLoadingProjects } = useProjectContext();
+
+  // Ensure projects are loaded when the modal opens
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
 
   useEffect(() => {
     // Reset state when modal is closed
     return () => {
       setSelectedFile(null);
       setDatasetName('');
-      setSelectedProjectId(null);
+      setSelectedProjectId('');
       setLocalError(null);
     };
   }, []);
@@ -65,7 +70,9 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
     setLocalError(null);
 
     try {
-      await uploadDataset(selectedFile, datasetName);
+      // Convert selectedProjectId to number if it's not empty
+      const projectId = selectedProjectId ? parseInt(selectedProjectId) : null;
+      await uploadDataset(selectedFile, datasetName, projectId);
 
       // Call success callback
       if (onSuccess) {
@@ -79,6 +86,15 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
       setLocalError('Failed to upload dataset. Please try again.');
     }
   };
+
+  // Convert projects to options format required by Select
+  const projectOptions: SelectOption[] = [
+    { value: '', label: 'None' },
+    ...(projects?.map(project => ({
+      value: project.id.toString(),
+      label: project.name
+    })) || [])
+  ];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -131,19 +147,22 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
                 <label htmlFor="project" className="block text-sm font-medium text-gray-700 mb-1">
                   Project (Optional)
                 </label>
-                <Select
-                  id="project"
-                  value={selectedProjectId?.toString() || ''}
-                  onChange={(e) => setSelectedProjectId(e.target.value ? parseInt(e.target.value) : null)}
-                  fullWidth
-                >
-                  <option value="">None</option>
-                  {projects.map(project => (
-                    <option key={project.id} value={project.id.toString()}>
-                      {project.name}
-                    </option>
-                  ))}
-                </Select>
+                {isLoadingProjects ? (
+                  <Select
+                    id="project"
+                    options={[{ value: '', label: 'Loading projects...' }]}
+                    disabled
+                    fullWidth
+                  />
+                ) : (
+                  <Select
+                    id="project"
+                    options={projectOptions}
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    fullWidth
+                  />
+                )}
               </div>
             </div>
           </>
