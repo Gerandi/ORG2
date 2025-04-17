@@ -116,7 +116,7 @@ class Dataset(Base):
     # Relationships with other models
     networks = relationship("Network", back_populates="dataset", cascade="all, delete-orphan")
     prepared_data = relationship("PreparedData", back_populates="dataset", cascade="all, delete-orphan")
-    ml_models = relationship("MLModel", secondary=dataset_mlmodel, back_populates="datasets")
+    ml_models = relationship("MLModel", secondary=dataset_mlmodel, back_populates="ml_models")
 
 
 class Network(Base):
@@ -158,6 +158,83 @@ class Network(Base):
     prepared_data = relationship("PreparedData", back_populates="network")
 
 
+class AgentAttributeDefinition(Base):
+    """Definition for agent attributes in an ABM model."""
+    
+    __tablename__ = "agent_attribute_definitions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    type = Column(String(50), nullable=False)  # number, string, boolean, etc.
+    default_value_json = Column(JSON, nullable=True)
+    min_value = Column(Float, nullable=True)
+    max_value = Column(Float, nullable=True)
+    options_json = Column(JSON, nullable=True)
+    
+    # Foreign key to ABMModel
+    abm_model_id = Column(Integer, ForeignKey("abm_models.id", ondelete="CASCADE"))
+    
+    # Relationship
+    model = relationship("ABMModel", back_populates="agent_attributes")
+    
+    
+class AgentStateVariableDefinition(Base):
+    """Definition for agent state variables in an ABM model."""
+    
+    __tablename__ = "agent_state_variable_definitions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    type = Column(String(50), nullable=False)  # number, string, boolean, etc.
+    default_value_json = Column(JSON, nullable=True)
+    min_value = Column(Float, nullable=True)
+    max_value = Column(Float, nullable=True)
+    options_json = Column(JSON, nullable=True)
+    
+    # Foreign key to ABMModel
+    abm_model_id = Column(Integer, ForeignKey("abm_models.id", ondelete="CASCADE"))
+    
+    # Relationship
+    model = relationship("ABMModel", back_populates="agent_state_variables")
+
+
+class AgentBehaviorDefinition(Base):
+    """Definition for agent behaviors in an ABM model."""
+    
+    __tablename__ = "agent_behavior_definitions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    parameters_json = Column(JSON, nullable=True)
+    
+    # Foreign key to ABMModel
+    abm_model_id = Column(Integer, ForeignKey("abm_models.id", ondelete="CASCADE"))
+    
+    # Relationship
+    model = relationship("ABMModel", back_populates="agent_behaviors")
+
+
+class EnvironmentVariableDefinition(Base):
+    """Definition for environment variables in an ABM model."""
+    
+    __tablename__ = "environment_variable_definitions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    type = Column(String(50), nullable=False)  # number, string, boolean, etc.
+    default_value_json = Column(JSON, nullable=True)
+    min_value = Column(Float, nullable=True)
+    max_value = Column(Float, nullable=True)
+    options_json = Column(JSON, nullable=True)
+    
+    # Foreign key to ABMModel
+    abm_model_id = Column(Integer, ForeignKey("abm_models.id", ondelete="CASCADE"))
+    
+    # Relationship
+    model = relationship("ABMModel", back_populates="environment_variables")
+
+
 class ABMModel(Base):
     """Agent-Based Model for simulating organizational dynamics."""
     
@@ -171,9 +248,6 @@ class ABMModel(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Store model attributes as JSON
-    attributes = Column(JSON, nullable=True)
-    
     # Relationships
     user_id = Column(Integer, ForeignKey("users.id"))
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
@@ -183,7 +257,13 @@ class ABMModel(Base):
     project = relationship("Project", back_populates="abm_models")
     network = relationship("Network", back_populates="abm_models")
     
-    # Relationships with other models
+    # Relationships with definition models
+    agent_attributes = relationship("AgentAttributeDefinition", back_populates="model", cascade="all, delete-orphan")
+    agent_state_variables = relationship("AgentStateVariableDefinition", back_populates="model", cascade="all, delete-orphan") 
+    agent_behaviors = relationship("AgentBehaviorDefinition", back_populates="model", cascade="all, delete-orphan")
+    environment_variables = relationship("EnvironmentVariableDefinition", back_populates="model", cascade="all, delete-orphan")
+    
+    # Relationships with simulations
     simulations = relationship("ABMSimulation", back_populates="model", cascade="all, delete-orphan")
 
 

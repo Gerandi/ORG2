@@ -1,0 +1,844 @@
+import React, { useState } from 'react';
+import { Users, Database, Share2, Download, RefreshCw, Play, Pause, FastForward, SkipForward, BarChart2, Settings, FileText, ChevronDown, Plus, Grid, Code, Sliders, Maximize2, ArrowRight, HelpCircle, AlertCircle, CheckCircle } from 'lucide-react';
+
+const AgentBasedModelingModule = () => {
+  const [activeTab, setActiveTab] = useState('model-design');
+  const [isRunning, setIsRunning] = useState(false);
+  const [showParameters, setShowParameters] = useState(true);
+  
+  return (
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Module Header */}
+      <div className="bg-white border-b border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Users className="text-orange-600 mr-2" size={24} />
+            <h1 className="text-xl font-semibold">Agent-Based Modeling</h1>
+          </div>
+          <div className="flex space-x-2">
+            <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md flex items-center hover:bg-gray-50">
+              <Download size={16} className="mr-1" />
+              Export
+            </button>
+            <button className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-md flex items-center hover:bg-orange-700">
+              <Plus size={16} className="mr-1" />
+              New Model
+            </button>
+          </div>
+        </div>
+        
+        {/* Module Tabs */}
+        <div className="flex space-x-4 mt-6 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('model-design')}
+            className={`pb-2 px-1 ${
+              activeTab === 'model-design'
+                ? 'text-orange-600 border-b-2 border-orange-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Model Design
+          </button>
+          <button
+            onClick={() => setActiveTab('simulation')}
+            className={`pb-2 px-1 ${
+              activeTab === 'simulation'
+                ? 'text-orange-600 border-b-2 border-orange-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Simulation Execution
+          </button>
+          <button
+            onClick={() => setActiveTab('analysis')}
+            className={`pb-2 px-1 ${
+              activeTab === 'analysis'
+                ? 'text-orange-600 border-b-2 border-orange-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Results Analysis
+          </button>
+          <button
+            onClick={() => setActiveTab('validation')}
+            className={`pb-2 px-1 ${
+              activeTab === 'validation'
+                ? 'text-orange-600 border-b-2 border-orange-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Model Validation
+          </button>
+        </div>
+      </div>
+      
+      {/* Module Content */}
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'model-design' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">Model Design</h2>
+              <div className="flex space-x-2">
+                <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md flex items-center hover:bg-gray-50">
+                  <Code size={16} className="mr-1" />
+                  Code View
+                </button>
+                <button className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-md flex items-center hover:bg-orange-700">
+                  Save Model
+                </button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Agent Definition */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3 flex items-center">
+                  <Users size={16} className="mr-1 text-gray-500" />
+                  Agent Definition
+                </h3>
+                
+                <div className="space-y-4">
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Agent Type: Employee</div>
+                      <button className="text-xs text-orange-600">Edit</button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Attributes</label>
+                        <div className="border border-gray-200 rounded-md max-h-32 overflow-y-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Name</th>
+                                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Type</th>
+                                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Default</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              <tr>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">role</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">String</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">"employee"</td>
+                              </tr>
+                              <tr>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">department</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">String</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">"sales"</td>
+                              </tr>
+                              <tr>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">knowledge_level</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">Float</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">0.5</td>
+                              </tr>
+                              <tr>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">communication_rate</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">Float</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">0.2</td>
+                              </tr>
+                              <tr>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">influence</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">Float</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">0.3</td>
+                              </tr>
+                              <tr className="bg-blue-50">
+                                <td className="px-3 py-1 whitespace-nowrap text-xs font-medium text-blue-700">betweenness</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">Float</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">0.0</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="mt-1 flex justify-end">
+                          <button className="text-xs text-orange-600">
+                            + Add Attribute
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">State Variables</label>
+                        <div className="border border-gray-200 rounded-md max-h-32 overflow-y-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Name</th>
+                                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Type</th>
+                                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Default</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              <tr>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">innovation_adoption</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">Boolean</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">false</td>
+                              </tr>
+                              <tr>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">knowledge</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">Float</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">0.0</td>
+                              </tr>
+                              <tr>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">satisfaction</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">Float</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-xs">0.7</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="mt-1 flex justify-end">
+                          <button className="text-xs text-orange-600">
+                            + Add State Variable
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Agent Initialization</div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Population Size</label>
+                        <input 
+                          type="number" 
+                          className="w-full p-1.5 text-sm border border-gray-300 rounded-md" 
+                          defaultValue="100"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Initialization Method</label>
+                        <select className="w-full p-1.5 text-sm border border-gray-300 rounded-md">
+                          <option>Random distribution</option>
+                          <option selected>Import from data</option>
+                          <option>Custom function</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Data Source</label>
+                        <select className="w-full p-1.5 text-sm border border-gray-300 rounded-md">
+                          <option>Employee Performance Metrics (XLSX)</option>
+                          <option selected>Employee Communication Network</option>
+                        </select>
+                        <div className="mt-1 text-xs text-gray-500 flex items-center">
+                          <CheckCircle size={12} className="mr-1 text-green-600" />
+                          Network metrics will be imported as agent attributes
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Behavior Rules */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3 flex items-center">
+                  <Code size={16} className="mr-1 text-gray-500" />
+                  Behavior Rules
+                </h3>
+                
+                <div className="space-y-4">
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Rule: Knowledge Transfer</div>
+                      <button className="text-xs text-orange-600">Edit</button>
+                    </div>
+                    
+                    <div className="text-xs text-gray-600 mb-2">
+                      Agents share knowledge with connected agents based on communication rate and proximity.
+                    </div>
+                    
+                    <div className="bg-gray-50 p-2 rounded border border-gray-200 text-xs font-mono overflow-x-auto">
+                      <pre>
+{`def knowledge_transfer(agent, neighbors):
+    for neighbor in neighbors:
+        if random.random() < agent.communication_rate:
+            knowledge_delta = 0.1 * (agent.knowledge_level - 
+                               neighbor.knowledge_level)
+            if knowledge_delta > 0:
+                neighbor.knowledge += knowledge_delta
+                agent.knowledge -= knowledge_delta * 0.1`}
+                      </pre>
+                    </div>
+                    
+                    <div className="mt-2 text-xs">
+                      <div className="flex items-center">
+                        <FileText size={12} className="mr-1 text-orange-600" />
+                        <span className="text-orange-600">Based on Social Influence Theory</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Rule: Innovation Adoption</div>
+                      <button className="text-xs text-orange-600">Edit</button>
+                    </div>
+                    
+                    <div className="text-xs text-gray-600 mb-2">
+                      Agents may adopt innovation based on threshold model of collective behavior.
+                    </div>
+                    
+                    <div className="bg-gray-50 p-2 rounded border border-gray-200 text-xs font-mono overflow-x-auto">
+                      <pre>
+{`def innovation_adoption(agent, neighbors):
+    if agent.innovation_adoption:
+        return  # Already adopted
+        
+    # Count adopters in network neighborhood
+    adopter_count = sum(1 for n in neighbors 
+                     if n.innovation_adoption)
+    adoption_threshold = 0.3 - (0.1 * agent.influence)
+    
+    # Adopt if threshold is met
+    if adopter_count / max(1, len(neighbors)) > adoption_threshold:
+        agent.innovation_adoption = True`}
+                      </pre>
+                    </div>
+                    
+                    <div className="mt-2 text-xs">
+                      <div className="flex items-center">
+                        <FileText size={12} className="mr-1 text-orange-600" />
+                        <span className="text-orange-600">Based on Diffusion of Innovation Theory</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-2 flex justify-center">
+                    <button className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-md flex items-center hover:bg-orange-700">
+                      <Plus size={16} className="mr-1" />
+                      Add Behavior Rule
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Environment & Interaction */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3 flex items-center">
+                  <Grid size={16} className="mr-1 text-gray-500" />
+                  Environment & Interaction
+                </h3>
+                
+                <div className="space-y-4">
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Network Topology</div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Topology Type</label>
+                        <select className="w-full p-1.5 text-sm border border-gray-300 rounded-md">
+                          <option>Random</option>
+                          <option>Small-world</option>
+                          <option>Scale-free</option>
+                          <option>Complete</option>
+                          <option selected>Import from SNA</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Network Source</label>
+                        <select className="w-full p-1.5 text-sm border border-gray-300 rounded-md">
+                          <option selected>Employee Communication Network</option>
+                          <option>Team Collaboration Network</option>
+                        </select>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <input type="checkbox" id="dynamic-network" className="mr-2" />
+                        <label htmlFor="dynamic-network" className="text-sm">Dynamic network (evolves during simulation)</label>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Environmental Variables</div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="border border-gray-200 rounded-md max-h-32 overflow-y-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Name</th>
+                              <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Type</th>
+                              <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            <tr>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">innovation_seed_pct</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">Float</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">0.05</td>
+                            </tr>
+                            <tr>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">knowledge_decay_rate</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">Float</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">0.01</td>
+                            </tr>
+                            <tr>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">org_hierarchy_strength</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">Float</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">0.7</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="mt-1 flex justify-end">
+                        <button className="text-xs text-orange-600">
+                          + Add Variable
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Time & Scheduling</div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Step Definition</label>
+                        <select className="w-full p-1.5 text-sm border border-gray-300 rounded-md">
+                          <option>Synchronous (all agents act simultaneously)</option>
+                          <option selected>Asynchronous (random order)</option>
+                          <option>Asynchronous (priority-based)</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Maximum Steps</label>
+                        <input 
+                          type="number"
+                          className="w-full p-1.5 text-sm border border-gray-300 rounded-md"
+                          defaultValue="500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+              <h3 className="font-medium mb-3">Theoretical Grounding</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
+                  <div className="font-medium text-sm mb-2">Research Question</div>
+                  <p className="text-sm text-gray-600">
+                    How does organizational network structure influence the diffusion of innovations and knowledge sharing within an organization?
+                  </p>
+                  
+                  <div className="mt-3">
+                    <div className="text-xs font-medium text-gray-700 mb-1">Related OB Theories:</div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-xs">Diffusion of Innovations</span>
+                      <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-xs">Social Learning Theory</span>
+                      <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-xs">Social Network Theory</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
+                  <div className="font-medium text-sm mb-2">Model Parameters Grounding</div>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-start">
+                      <div className="w-28 text-xs font-medium text-gray-700">Knowledge Transfer:</div>
+                      <div className="flex-1 text-xs">
+                        Based on empirical studies of knowledge transfer in R&D teams (Chen et al., 2023)
+                      </div>
+                    </div>
+                    <div className="flex items-start">
+                      <div className="w-28 text-xs font-medium text-gray-700">Innovation Adoption:</div>
+                      <div className="flex-1 text-xs">
+                        Calibrated using threshold values from Rogers' Diffusion of Innovation framework
+                      </div>
+                    </div>
+                    <div className="flex items-start">
+                      <div className="w-28 text-xs font-medium text-gray-700">Network Structure:</div>
+                      <div className="flex-1 text-xs">
+                        Imported directly from empirical communication network data
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 text-xs text-orange-700 flex items-center">
+                    <FileText size={14} className="mr-1" />
+                    <span>View reference literature</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-4 flex justify-end">
+                <button className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-md flex items-center hover:bg-orange-700">
+                  Continue to Simulation
+                  <ArrowRight size={16} className="ml-1" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'simulation' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">Simulation Execution</h2>
+              <div className="flex items-center">
+                <span className="text-sm mr-4">
+                  Step: <span className="font-medium">42</span> / 500
+                </span>
+                <div className="flex space-x-2">
+                  <button 
+                    className="p-1.5 border border-gray-300 rounded-md hover:bg-gray-50"
+                    onClick={() => setIsRunning(!isRunning)}
+                  >
+                    {isRunning ? <Pause size={18} /> : <Play size={18} />}
+                  </button>
+                  <button className="p-1.5 border border-gray-300 rounded-md hover:bg-gray-50">
+                    <FastForward size={18} />
+                  </button>
+                  <button className="p-1.5 border border-gray-300 rounded-md hover:bg-gray-50">
+                    <SkipForward size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex h-[calc(100vh-16rem)]">
+              {/* Left Panel - Parameters */}
+              {showParameters && (
+                <div className="w-72 bg-white border-r border-gray-200 p-4 flex flex-col overflow-y-auto">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-medium">Simulation Parameters</h3>
+                    <button 
+                      className="text-gray-400 hover:text-gray-500"
+                      onClick={() => setShowParameters(false)}
+                    >
+                      <ChevronDown size={18} />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4 flex-1 overflow-y-auto">
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="font-medium text-sm mb-2">Initial Conditions</div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Population Size</label>
+                          <div className="flex items-center">
+                            <input 
+                              type="range" 
+                              min="10" 
+                              max="500" 
+                              defaultValue="100" 
+                              className="w-full mr-2"
+                            />
+                            <span className="text-xs w-8">100</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Initial Adopters (%)</label>
+                          <div className="flex items-center">
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max="30" 
+                              defaultValue="5" 
+                              className="w-full mr-2"
+                            />
+                            <span className="text-xs w-8">5%</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Seed Strategy</label>
+                          <select className="w-full p-1.5 text-sm border border-gray-300 rounded-md">
+                            <option>Random</option>
+                            <option selected>High Centrality</option>
+                            <option>Peripheral</option>
+                            <option>By Department</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="font-medium text-sm mb-2">Behavioral Parameters</div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Communication Rate</label>
+                          <div className="flex items-center">
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max="100" 
+                              defaultValue="20" 
+                              className="w-full mr-2"
+                            />
+                            <span className="text-xs w-8">0.2</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Knowledge Transfer Efficiency</label>
+                          <div className="flex items-center">
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max="100" 
+                              defaultValue="10" 
+                              className="w-full mr-2"
+                            />
+                            <span className="text-xs w-8">0.1</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Innovation Threshold</label>
+                          <div className="flex items-center">
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max="100" 
+                              defaultValue="30" 
+                              className="w-full mr-2"
+                            />
+                            <span className="text-xs w-8">0.3</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="font-medium text-sm mb-2">Environmental Variables</div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Knowledge Decay Rate</label>
+                          <div className="flex items-center">
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max="10" 
+                              defaultValue="1" 
+                              className="w-full mr-2"
+                            />
+                            <span className="text-xs w-8">0.01</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Org. Hierarchy Strength</label>
+                          <div className="flex items-center">
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max="100" 
+                              defaultValue="70" 
+                              className="w-full mr-2"
+                            />
+                            <span className="text-xs w-8">0.7</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-gray-200 mt-3">
+                    <div className="flex justify-between">
+                      <button className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50">
+                        Reset Parameters
+                      </button>
+                      <button className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700">
+                        Apply Changes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Right Side - Visualization & Real-time Data */}
+              <div className="flex-1 flex flex-col">
+                {/* Toolbar */}
+                <div className="border-b border-gray-200 bg-white p-2 flex items-center justify-between">
+                  <div className="flex space-x-2">
+                    <button 
+                      className="p-1 rounded hover:bg-gray-100"
+                      onClick={() => setShowParameters(!showParameters)}
+                    >
+                      <Sliders size={18} />
+                    </button>
+                    <button className="p-1 rounded hover:bg-gray-100">
+                      <Maximize2 size={18} />
+                    </button>
+                  </div>
+                  
+                  <div className="flex space-x-4">
+                    <div className="flex items-center">
+                      <label className="text-xs text-gray-500 mr-2">Visualization Mode:</label>
+                      <select className="p-1 text-sm border border-gray-300 rounded-md">
+                        <option>Network</option>
+                        <option>3D Space</option>
+                        <option>Grid</option>
+                        <option>Charts</option>
+                      </select>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <label className="text-xs text-gray-500 mr-2">Color By:</label>
+                      <select className="p-1 text-sm border border-gray-300 rounded-md">
+                        <option>Innovation Adoption</option>
+                        <option>Department</option>
+                        <option>Knowledge Level</option>
+                        <option>Centrality</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Simulation Visualization */}
+                <div className="flex-1 bg-gray-50 p-4 grid grid-cols-2 gap-4">
+                  {/* Main Visualization */}
+                  <div className="bg-white rounded-lg border border-gray-200 col-span-2 sm:col-span-1 row-span-2 flex items-center justify-center relative">
+                    <img 
+                      src="/api/placeholder/600/400"
+                      alt="Network visualization" 
+                      className="max-w-full max-h-full"
+                    />
+                    <div className="absolute top-2 right-2 bg-white p-1 rounded-md border border-gray-200 text-xs font-medium">
+                      Network View
+                    </div>
+                  </div>
+                  
+                  {/* Real-time Metrics */}
+                  <div className="bg-white rounded-lg border border-gray-200 p-3">
+                    <h4 className="text-sm font-medium mb-2">Innovation Adoption</h4>
+                    <div className="h-32 flex items-center justify-center">
+                      <div className="text-gray-400 text-xs">
+                        Innovation adoption chart
+                      </div>
+                    </div>
+                    <div className="mt-1 flex justify-between text-xs text-gray-500">
+                      <div>Adopters: 27%</div>
+                      <div>Growth Rate: +1.2%/step</div>
+                    </div>
+                  </div>
+                  
+                  {/* Knowledge Distribution */}
+                  <div className="bg-white rounded-lg border border-gray-200 p-3">
+                    <h4 className="text-sm font-medium mb-2">Knowledge Distribution</h4>
+                    <div className="h-32 flex items-center justify-center">
+                      <div className="text-gray-400 text-xs">
+                        Knowledge distribution chart
+                      </div>
+                    </div>
+                    <div className="mt-1 flex justify-between text-xs text-gray-500">
+                      <div>Avg. Knowledge: 0.38</div>
+                      <div>Gini Coefficient: 0.45</div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Status Bar */}
+                <div className="border-t border-gray-200 bg-white p-2 flex justify-between items-center text-xs text-gray-500">
+                  <div>
+                    Running innovation diffusion model | Seed: 42
+                  </div>
+                  <div className="flex space-x-4">
+                    <div>Elapsed Time: 00:01:24</div>
+                    <div>Speed: 5x</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4">
+              <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3">Experiment Setup</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="border border-gray-200 rounded-md p-3">
+                    <div className="font-medium text-sm mb-2">Parameter Sweep</div>
+                    <p className="text-xs text-gray-600 mb-2">
+                      Run multiple simulations with varying parameters to understand sensitivities.
+                    </p>
+                    <button className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700">
+                      Setup Sweep
+                    </button>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-3">
+                    <div className="font-medium text-sm mb-2">Batch Runs</div>
+                    <p className="text-xs text-gray-600 mb-2">
+                      Run multiple simulations with the same parameters to account for stochasticity.
+                    </p>
+                    <button className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700">
+                      Configure Batch
+                    </button>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-3">
+                    <div className="font-medium text-sm mb-2">Save Configuration</div>
+                    <p className="text-xs text-gray-600 mb-2">
+                      Save the current model configuration and parameter settings.
+                    </p>
+                    <button className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50">
+                      Save Configuration
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'analysis' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">Results Analysis</h2>
+              <div className="flex space-x-2">
+                <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md flex items-center hover:bg-gray-50">
+                  <RefreshCw size={16} className="mr-1" />
+                  Refresh Data
+                </button>
+                <button className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-md flex items-center hover:bg-orange-700">
+                  <Download size={16} className="mr-1" />
+                  Export Results
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'validation' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">Model Validation</h2>
+              <div className="flex space-x-2">
+                <button className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-md flex items-center hover:bg-orange-700">
+                  <RefreshCw size={16} className="mr-1" />
+                  Run Validation
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AgentBasedModelingModule;

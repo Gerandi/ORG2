@@ -401,48 +401,78 @@ class ABMSimulationService:
     @staticmethod
     def create_model(
         simulation_type: SimulationType,
-        network_data: Dict[str, Any],
-        parameters: Dict[str, Any]
+        network_data: Union[Dict[str, Any], nx.Graph],
+        agent_attributes: List[Dict[str, Any]] = None,
+        agent_state_variables: List[Dict[str, Any]] = None,
+        agent_behaviors: List[Dict[str, Any]] = None,
+        environment_variables: List[Dict[str, Any]] = None,
+        simulation_parameters: Dict[str, Any] = None
     ) -> Union[Model, Dict[str, Any]]:
         """
-        Create an agent-based model based on the simulation type.
+        Create an agent-based model based on the simulation type and structured definitions.
         
         Args:
             simulation_type: Type of simulation to create
-            network_data: Network data containing nodes and edges
-            parameters: Parameters for the simulation
+            network_data: Network data containing nodes and edges or a NetworkX graph
+            agent_attributes: List of agent attribute definitions
+            agent_state_variables: List of agent state variable definitions
+            agent_behaviors: List of agent behavior definitions
+            environment_variables: List of environment variable definitions
+            simulation_parameters: Parameters specific to this simulation run
             
         Returns:
             Mesa Model instance or dict with error information
         """
         try:
-            # Create NetworkX graph from network data
-            G = nx.Graph()
+            # Process parameters
+            agent_attributes = agent_attributes or []
+            agent_state_variables = agent_state_variables or []
+            agent_behaviors = agent_behaviors or []
+            environment_variables = environment_variables or []
+            simulation_parameters = simulation_parameters or {}
             
-            # Add nodes with attributes
-            for node in network_data.get("nodes", []):
-                node_id = node.pop("id")
-                G.add_node(node_id, **node)
-            
-            # Add edges
-            for edge in network_data.get("edges", []):
-                source = edge.pop("source")
-                target = edge.pop("target")
+            # Create NetworkX graph if network_data is a dict
+            if isinstance(network_data, dict):
+                G = nx.Graph()
                 
-                # Handle weight if present
-                if "weight" in edge:
-                    weight = edge.pop("weight")
-                    G.add_edge(source, target, weight=weight, **edge)
-                else:
-                    G.add_edge(source, target, **edge)
+                # Add nodes with attributes
+                for node in network_data.get("nodes", []):
+                    node_id = node.pop("id")
+                    G.add_node(node_id, **node)
+                
+                # Add edges
+                for edge in network_data.get("edges", []):
+                    source = edge.pop("source")
+                    target = edge.pop("target")
+                    
+                    # Handle weight if present
+                    if "weight" in edge:
+                        weight = edge.pop("weight")
+                        G.add_edge(source, target, weight=weight, **edge)
+                    else:
+                        G.add_edge(source, target, **edge)
+            else:
+                G = network_data  # If already a NetworkX graph, use it directly
             
             # Create model based on simulation type
             if simulation_type == SimulationType.SOCIAL_INFLUENCE:
-                # Extract parameters
-                influence_strength = parameters.get("influence_strength", 0.1)
-                conformity_bias = parameters.get("conformity_bias", 0.3)
-                initial_opinions = parameters.get("initial_opinions", {})
-                random_seed = parameters.get("random_seed", None)
+                # Extract parameters from structured definitions and simulation parameters
+                influence_strength = simulation_parameters.get("influence_strength", 0.1)
+                conformity_bias = simulation_parameters.get("conformity_bias", 0.3)
+                random_seed = simulation_parameters.get("random_seed", None)
+                
+                # Process initial opinions from agent state variables
+                initial_opinions = {}
+                for state_var in agent_state_variables:
+                    if state_var["name"] == "opinion":
+                        # If there's a default value, use it for all nodes
+                        if state_var.get("default_value") is not None:
+                            initial_opinions = {node: state_var["default_value"] 
+                                               for node in G.nodes()}
+                
+                # Override with any node-specific opinions from simulation parameters
+                if "initial_opinions" in simulation_parameters:
+                    initial_opinions.update(simulation_parameters["initial_opinions"])
                 
                 # Create model
                 model = SocialInfluenceModel(
@@ -456,12 +486,17 @@ class ABMSimulationService:
                 return model
                 
             elif simulation_type == SimulationType.DIFFUSION:
-                # Extract parameters
-                initial_adopters = parameters.get("initial_adopters", 0.05)
-                default_threshold = parameters.get("adoption_threshold", 0.3)
-                influence_decay = parameters.get("influence_decay", 0.1)
-                seed_nodes = parameters.get("seed_nodes", None)
-                random_seed = parameters.get("random_seed", None)
+                # Extract parameters from structured definitions and simulation parameters
+                initial_adopters = simulation_parameters.get("initial_adopters", 0.05)
+                influence_decay = simulation_parameters.get("influence_decay", 0.1)
+                random_seed = simulation_parameters.get("random_seed", None)
+                seed_nodes = simulation_parameters.get("seed_nodes", None)
+                
+                # Find adoption threshold from agent state variables or use default
+                default_threshold = 0.3
+                for state_var in agent_state_variables:
+                    if state_var["name"] == "adoption_threshold":
+                        default_threshold = state_var.get("default_value", 0.3)
                 
                 # Create model
                 model = DiffusionModel(
@@ -477,20 +512,25 @@ class ABMSimulationService:
                 
             elif simulation_type == SimulationType.TEAM_ASSEMBLY:
                 # For now, return a placeholder - this would be a real implementation
+                # that uses the structured definitions
                 return {
                     "error": "Team assembly simulation not fully implemented",
                     "simulation_type": simulation_type,
                     "node_count": G.number_of_nodes(),
-                    "edge_count": G.number_of_edges()
+                    "edge_count": G.number_of_edges(),
+                    "agent_attributes": [attr["name"] for attr in agent_attributes],
+                    "agent_behaviors": [behavior["name"] for behavior in agent_behaviors]
                 }
                 
             elif simulation_type == SimulationType.ORGANIZATIONAL_LEARNING:
                 # For now, return a placeholder - this would be a real implementation
+                # that uses the structured definitions
                 return {
                     "error": "Organizational learning simulation not fully implemented",
                     "simulation_type": simulation_type,
                     "node_count": G.number_of_nodes(),
-                    "edge_count": G.number_of_edges()
+                    "edge_count": G.number_of_edges(),
+                    "env_variables": [var["name"] for var in environment_variables]
                 }
                 
             else:
@@ -750,13 +790,13 @@ class ABMSimulationService:
                 
                 for value in param_values:
                     # Create parameters for this run
-                    parameters = {param_name: value}
+                    simulation_parameters = {param_name: value}
                     
                     # Create and run model
                     model = ABMSimulationService.create_model(
                         simulation_type=simulation_type,
                         network_data=network_data,
-                        parameters=parameters
+                        simulation_parameters=simulation_parameters
                     )
                     
                     # Run simulation
@@ -792,13 +832,13 @@ class ABMSimulationService:
                     row = []
                     for val2 in values2:
                         # Create parameters for this run
-                        parameters = {param1: val1, param2: val2}
+                        simulation_parameters = {param1: val1, param2: val2}
                         
                         # Create and run model
                         model = ABMSimulationService.create_model(
                             simulation_type=simulation_type,
                             network_data=network_data,
-                            parameters=parameters
+                            simulation_parameters=simulation_parameters
                         )
                         
                         # Run simulation

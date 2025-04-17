@@ -1,0 +1,852 @@
+import React, { useState } from 'react';
+import { BarChart, Database, Share2, Download, RefreshCw, Settings, FileText, ChevronDown, Plus, Play, List, Grid, ArrowRight, HelpCircle, AlertCircle, CheckCircle, ChevronsRight } from 'lucide-react';
+
+const MachineLearningModule = () => {
+  const [activeTab, setActiveTab] = useState('feature-engineering');
+  const [selectedModel, setSelectedModel] = useState('random-forest');
+
+  return (
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Module Header */}
+      <div className="bg-white border-b border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <BarChart className="text-blue-600 mr-2" size={24} />
+            <h1 className="text-xl font-semibold">Machine Learning</h1>
+          </div>
+          <div className="flex space-x-2">
+            <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md flex items-center hover:bg-gray-50">
+              <RefreshCw size={16} className="mr-1" />
+              Refresh
+            </button>
+            <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md flex items-center hover:bg-gray-50">
+              <Download size={16} className="mr-1" />
+              Export
+            </button>
+            <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700">
+              <Plus size={16} className="mr-1" />
+              New Model
+            </button>
+          </div>
+        </div>
+        
+        {/* Module Tabs */}
+        <div className="flex space-x-4 mt-6 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('feature-engineering')}
+            className={`pb-2 px-1 ${
+              activeTab === 'feature-engineering'
+                ? 'text-blue-600 border-b-2 border-blue-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Feature Engineering
+          </button>
+          <button
+            onClick={() => setActiveTab('model-building')}
+            className={`pb-2 px-1 ${
+              activeTab === 'model-building'
+                ? 'text-blue-600 border-b-2 border-blue-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Model Building
+          </button>
+          <button
+            onClick={() => setActiveTab('validation')}
+            className={`pb-2 px-1 ${
+              activeTab === 'validation'
+                ? 'text-blue-600 border-b-2 border-blue-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Validation & Evaluation
+          </button>
+          <button
+            onClick={() => setActiveTab('interpretation')}
+            className={`pb-2 px-1 ${
+              activeTab === 'interpretation'
+                ? 'text-blue-600 border-b-2 border-blue-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Model Interpretation
+          </button>
+          <button
+            onClick={() => setActiveTab('nlp')}
+            className={`pb-2 px-1 ${
+              activeTab === 'nlp'
+                ? 'text-blue-600 border-b-2 border-blue-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            NLP Analysis
+          </button>
+        </div>
+      </div>
+      
+      {/* Module Content */}
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'feature-engineering' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">Feature Engineering</h2>
+              <div className="flex space-x-2">
+                <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700">
+                  Create Feature Set
+                </button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Data Source Selection */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3 flex items-center">
+                  <Database size={16} className="mr-1 text-gray-500" />
+                  Data Sources
+                </h3>
+                
+                <div className="space-y-4">
+                  <div className="border border-gray-200 rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Primary Dataset</div>
+                      <button className="text-xs text-blue-600">Change</button>
+                    </div>
+                    <div className="flex items-center text-sm">
+                      <Database size={14} className="mr-1.5 text-gray-400" />
+                      <span>Employee Performance Metrics (XLSX)</span>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">
+                      143 rows × 18 columns
+                    </div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Network Data</div>
+                      <button className="text-xs text-blue-600">Add</button>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Share2 size={14} className="mr-1.5 text-gray-400" />
+                      <span>Employee Communication Network</span>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">
+                      Network metrics from SNA module
+                    </div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Additional Sources</div>
+                      <button className="text-xs text-blue-600">Add</button>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      No additional sources
+                    </div>
+                    <div className="mt-2 text-xs text-blue-600">
+                      + Add organizational attribute data
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Feature Selection & Transformation */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3 flex items-center">
+                  <List size={16} className="mr-1 text-gray-500" />
+                  Feature Selection
+                </h3>
+                
+                <div className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
+                  <div className="border border-gray-200 rounded-md p-2 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input type="checkbox" id="feature-1" defaultChecked className="mr-2" />
+                      <label htmlFor="feature-1" className="text-sm">employee_tenure</label>
+                    </div>
+                    <div className="text-xs text-gray-500">Numeric</div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-2 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input type="checkbox" id="feature-2" defaultChecked className="mr-2" />
+                      <label htmlFor="feature-2" className="text-sm">performance_reviews_avg</label>
+                    </div>
+                    <div className="text-xs text-gray-500">Numeric</div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-2 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input type="checkbox" id="feature-3" defaultChecked className="mr-2" />
+                      <label htmlFor="feature-3" className="text-sm">training_hours</label>
+                    </div>
+                    <div className="text-xs text-gray-500">Numeric</div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-2 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input type="checkbox" id="feature-4" className="mr-2" />
+                      <label htmlFor="feature-4" className="text-sm">department</label>
+                    </div>
+                    <div className="text-xs text-gray-500">Categorical</div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-2 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input type="checkbox" id="feature-5" defaultChecked className="mr-2" />
+                      <label htmlFor="feature-5" className="text-sm">role_level</label>
+                    </div>
+                    <div className="text-xs text-gray-500">Ordinal</div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-2 flex items-center justify-between bg-blue-50 border-blue-200">
+                    <div className="flex items-center">
+                      <input type="checkbox" id="feature-6" defaultChecked className="mr-2" />
+                      <label htmlFor="feature-6" className="text-sm font-medium text-blue-700">betweenness_centrality</label>
+                    </div>
+                    <div className="text-xs text-blue-600">Network</div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-2 flex items-center justify-between bg-blue-50 border-blue-200">
+                    <div className="flex items-center">
+                      <input type="checkbox" id="feature-7" defaultChecked className="mr-2" />
+                      <label htmlFor="feature-7" className="text-sm font-medium text-blue-700">degree_centrality</label>
+                    </div>
+                    <div className="text-xs text-blue-600">Network</div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-2 flex items-center justify-between bg-blue-50 border-blue-200">
+                    <div className="flex items-center">
+                      <input type="checkbox" id="feature-8" defaultChecked className="mr-2" />
+                      <label htmlFor="feature-8" className="text-sm font-medium text-blue-700">clustering_coefficient</label>
+                    </div>
+                    <div className="text-xs text-blue-600">Network</div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-2 flex items-center justify-between bg-blue-50 border-blue-200">
+                    <div className="flex items-center">
+                      <input type="checkbox" id="feature-9" className="mr-2" />
+                      <label htmlFor="feature-9" className="text-sm font-medium text-blue-700">effective_size</label>
+                    </div>
+                    <div className="text-xs text-blue-600">Network</div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-2 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input type="checkbox" id="feature-10" className="mr-2" />
+                      <label htmlFor="feature-10" className="text-sm">project_involvement_count</label>
+                    </div>
+                    <div className="text-xs text-gray-500">Numeric</div>
+                  </div>
+                </div>
+                
+                <div className="border-t border-gray-200 mt-3 pt-3 flex justify-between items-center">
+                  <div className="text-xs text-gray-500">8 features selected</div>
+                  <button className="text-xs text-blue-600">Select All</button>
+                </div>
+              </div>
+              
+              {/* Feature Transformations */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3 flex items-center">
+                  <Settings size={16} className="mr-1 text-gray-500" />
+                  Feature Transformations
+                </h3>
+                
+                <div className="space-y-4">
+                  <div className="border border-gray-200 rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Scaling & Normalization</div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm">
+                        <input type="radio" id="scaling-1" name="scaling" defaultChecked className="mr-2" />
+                        <label htmlFor="scaling-1">StandardScaler (Z-score)</label>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <input type="radio" id="scaling-2" name="scaling" className="mr-2" />
+                        <label htmlFor="scaling-2">MinMaxScaler (0-1 range)</label>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <input type="radio" id="scaling-3" name="scaling" className="mr-2" />
+                        <label htmlFor="scaling-3">RobustScaler (median, IQR)</label>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <input type="radio" id="scaling-4" name="scaling" className="mr-2" />
+                        <label htmlFor="scaling-4">No scaling</label>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-2 text-xs">
+                      <label className="block text-gray-500 mb-1">Apply to:</label>
+                      <select className="w-full p-1.5 border border-gray-300 rounded-md">
+                        <option>All numeric features</option>
+                        <option>Network features only</option>
+                        <option>Selected features only</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Categorical Encoding</div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm">
+                        <input type="radio" id="encoding-1" name="encoding" defaultChecked className="mr-2" />
+                        <label htmlFor="encoding-1">One-Hot Encoding</label>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <input type="radio" id="encoding-2" name="encoding" className="mr-2" />
+                        <label htmlFor="encoding-2">Label Encoding</label>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <input type="radio" id="encoding-3" name="encoding" className="mr-2" />
+                        <label htmlFor="encoding-3">Target Encoding</label>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="border border-gray-200 rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Advanced Transformations</div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm">
+                        <input type="checkbox" id="transform-1" className="mr-2" />
+                        <label htmlFor="transform-1">Polynomial Features</label>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <input type="checkbox" id="transform-2" className="mr-2" />
+                        <label htmlFor="transform-2">Log Transformation</label>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <input type="checkbox" id="transform-3" className="mr-2" />
+                        <label htmlFor="transform-3">Principal Component Analysis (PCA)</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Preview and Target Variable */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+              <div className="md:col-span-2 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3">Data Preview</h3>
+                
+                <div className="border border-gray-200 rounded-md overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">employee_id</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">tenure</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">perf_avg</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">training</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">role_level</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 bg-blue-50">betweenness</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 bg-blue-50">degree</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 bg-blue-50">clustering</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">promotion</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {[
+                        { id: 'E001', tenure: 5.2, perf: 4.3, training: 42, role: 3, betweenness: 0.045, degree: 15, clustering: 0.267, promotion: 1 },
+                        { id: 'E002', tenure: 2.7, perf: 3.8, training: 28, role: 2, betweenness: 0.012, degree: 8, clustering: 0.476, promotion: 0 },
+                        { id: 'E003', tenure: 8.1, perf: 4.6, training: 65, role: 4, betweenness: 0.089, degree: 23, clustering: 0.183, promotion: 1 },
+                        { id: 'E004', tenure: 1.3, perf: 3.5, training: 18, role: 1, betweenness: 0.003, degree: 5, clustering: 0.600, promotion: 0 },
+                        { id: 'E005', tenure: 4.5, perf: 4.0, training: 36, role: 3, betweenness: 0.035, degree: 12, clustering: 0.321, promotion: 0 }
+                      ].map((row, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 whitespace-nowrap text-xs">{row.id}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs">{row.tenure}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs">{row.perf}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs">{row.training}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs">{row.role}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs bg-blue-50">{row.betweenness}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs bg-blue-50">{row.degree}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs bg-blue-50">{row.clustering}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs">{row.promotion}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="mt-2 text-xs text-gray-500 flex justify-between items-center">
+                  <div>Showing 5 of 143 rows</div>
+                  <button className="text-blue-600">View Full Dataset</button>
+                </div>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3">Target Variable</h3>
+                
+                <div className="space-y-4">
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Prediction Task</div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm">
+                        <input type="radio" id="task-1" name="task" defaultChecked className="mr-2" />
+                        <label htmlFor="task-1">Classification</label>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <input type="radio" id="task-2" name="task" className="mr-2" />
+                        <label htmlFor="task-2">Regression</label>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-sm">Select Target</div>
+                    </div>
+                    
+                    <select className="w-full p-2 text-sm border border-gray-300 rounded-md mb-3">
+                      <option>promotion (Binary - 0/1)</option>
+                      <option>performance_score (Numeric)</option>
+                      <option>retention_risk (Categorical)</option>
+                      <option>salary_increase_pct (Numeric)</option>
+                    </select>
+                    
+                    <div className="text-xs text-gray-500 flex items-center mt-2">
+                      <AlertCircle size={14} className="mr-1 text-blue-600" />
+                      Binary classification task detected
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
+                    <div className="font-medium text-sm mb-2">Target Distribution</div>
+                    <div className="h-32 flex items-center justify-center">
+                      <div className="text-gray-400 text-xs">
+                        Target distribution chart
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      <div className="flex justify-between">
+                        <span>Class 0 (Not Promoted):</span>
+                        <span>108 (75.5%)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Class 1 (Promoted):</span>
+                        <span>35 (24.5%)</span>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center text-xs text-yellow-600">
+                      <AlertCircle size={14} className="mr-1" />
+                      Class imbalance detected
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex justify-end">
+                  <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700">
+                    Continue to Model Building
+                    <ArrowRight size={16} className="ml-1" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'model-building' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">Model Building</h2>
+              <div className="flex space-x-2">
+                <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700">
+                  <Play size={16} className="mr-1" />
+                  Train Model
+                </button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Algorithm Selection */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-4">Algorithm Selection</h3>
+                
+                <div className="space-y-3">
+                  <div 
+                    className={`p-3 border rounded-md cursor-pointer ${
+                      selectedModel === 'logistic-regression' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-blue-200 hover:bg-blue-50'
+                    }`}
+                    onClick={() => setSelectedModel('logistic-regression')}
+                  >
+                    <div className="font-medium text-sm mb-1">Logistic Regression</div>
+                    <div className="text-xs text-gray-500">
+                      Linear model for binary classification with good interpretability.
+                    </div>
+                    <div className="mt-1.5 flex space-x-2">
+                      <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">Interpretable</span>
+                      <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">Linear</span>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 border rounded-md cursor-pointer ${
+                      selectedModel === 'random-forest' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-blue-200 hover:bg-blue-50'
+                    }`}
+                    onClick={() => setSelectedModel('random-forest')}
+                  >
+                    <div className="font-medium text-sm mb-1">Random Forest</div>
+                    <div className="text-xs text-gray-500">
+                      Ensemble of decision trees with good performance and robustness.
+                    </div>
+                    <div className="mt-1.5 flex space-x-2">
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">High Performance</span>
+                      <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">Feature Importance</span>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 border rounded-md cursor-pointer ${
+                      selectedModel === 'svm' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-blue-200 hover:bg-blue-50'
+                    }`}
+                    onClick={() => setSelectedModel('svm')}
+                  >
+                    <div className="font-medium text-sm mb-1">Support Vector Machine</div>
+                    <div className="text-xs text-gray-500">
+                      Effective in high-dimensional spaces with clear margin of separation.
+                    </div>
+                    <div className="mt-1.5 flex space-x-2">
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">High Dimensional</span>
+                      <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">Kernel Methods</span>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 border rounded-md cursor-pointer ${
+                      selectedModel === 'neural-network' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-blue-200 hover:bg-blue-50'
+                    }`}
+                    onClick={() => setSelectedModel('neural-network')}
+                  >
+                    <div className="font-medium text-sm mb-1">Neural Network</div>
+                    <div className="text-xs text-gray-500">
+                      Deep learning model for complex patterns and relationships.
+                    </div>
+                    <div className="mt-1.5 flex space-x-2">
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">High Performance</span>
+                      <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-xs">Low Interpretability</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 text-xs text-blue-600 flex items-center">
+                  <HelpCircle size={14} className="mr-1" />
+                  <span>Model Selection Guide</span>
+                </div>
+              </div>
+              
+              {/* Hyperparameters */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-4">Hyperparameters</h3>
+                
+                {selectedModel === 'random-forest' && (
+                  <div className="space-y-4">
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="font-medium text-sm mb-2">Random Forest Parameters</div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Number of Trees (n_estimators)</label>
+                          <div className="flex items-center">
+                            <input 
+                              type="range" 
+                              min="10" 
+                              max="500" 
+                              defaultValue="100" 
+                              className="w-full mr-2"
+                            />
+                            <span className="text-xs w-8">100</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Max Depth</label>
+                          <div className="flex items-center">
+                            <input 
+                              type="range" 
+                              min="2" 
+                              max="32" 
+                              defaultValue="None" 
+                              className="w-full mr-2"
+                            />
+                            <span className="text-xs w-8">None</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Min Samples Split</label>
+                          <input 
+                            type="number" 
+                            min="2" 
+                            defaultValue="2" 
+                            className="w-full p-1.5 text-sm border border-gray-300 rounded-md"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Min Samples Leaf</label>
+                          <input 
+                            type="number" 
+                            min="1" 
+                            defaultValue="1" 
+                            className="w-full p-1.5 text-sm border border-gray-300 rounded-md"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Bootstrap</label>
+                          <div className="flex items-center space-x-4">
+                            <div className="flex items-center">
+                              <input type="radio" id="bootstrap-true" name="bootstrap" defaultChecked className="mr-1" />
+                              <label htmlFor="bootstrap-true" className="text-sm">True</label>
+                            </div>
+                            <div className="flex items-center">
+                              <input type="radio" id="bootstrap-false" name="bootstrap" className="mr-1" />
+                              <label htmlFor="bootstrap-false" className="text-sm">False</label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="font-medium text-sm mb-2">Class Imbalance Handling</div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Class Weight</label>
+                          <select className="w-full p-1.5 text-sm border border-gray-300 rounded-md">
+                            <option>balanced</option>
+                            <option>balanced_subsample</option>
+                            <option>None</option>
+                          </select>
+                        </div>
+                        
+                        <div className="flex items-center">
+                          <input type="checkbox" id="sampling" className="mr-2" />
+                          <label htmlFor="sampling" className="text-sm">Apply SMOTE oversampling</label>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-medium text-sm">Hyperparameter Tuning</div>
+                        <button className="text-xs text-blue-600">Configure</button>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center">
+                          <input type="checkbox" id="hp-tuning" className="mr-2" />
+                          <label htmlFor="hp-tuning" className="text-sm">Enable Grid Search</label>
+                        </div>
+                        
+                        <div className="text-xs text-gray-500">
+                          Automatically find optimal hyperparameters through cross-validated grid search.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Training Settings */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-4">Training Settings</h3>
+                
+                <div className="space-y-4">
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="font-medium text-sm mb-2">Data Splitting</div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Train/Test Split Ratio</label>
+                        <div className="flex items-center">
+                          <input 
+                            type="range" 
+                            min="50" 
+                            max="90" 
+                            defaultValue="80" 
+                            className="w-full mr-2"
+                          />
+                          <span className="text-xs w-14">80% / 20%</span>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Stratification</label>
+                        <div className="flex items-center">
+                          <input type="checkbox" id="stratify" defaultChecked className="mr-2" />
+                          <label htmlFor="stratify" className="text-sm">Stratify by target</label>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Random State</label>
+                        <input 
+                          type="number" 
+                          min="0" 
+                          defaultValue="42" 
+                          className="w-full p-1.5 text-sm border border-gray-300 rounded-md"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="font-medium text-sm mb-2">Cross-Validation</div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Cross-Validation Method</label>
+                        <select className="w-full p-1.5 text-sm border border-gray-300 rounded-md">
+                          <option>K-Fold Cross-Validation</option>
+                          <option>Stratified K-Fold</option>
+                          <option>Leave-One-Out</option>
+                          <option>Time Series Split</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Number of Folds (k)</label>
+                        <input 
+                          type="number" 
+                          min="2" 
+                          defaultValue="5" 
+                          className="w-full p-1.5 text-sm border border-gray-300 rounded-md"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="font-medium text-sm mb-2">Baseline Model</div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Compare Against</label>
+                        <select className="w-full p-1.5 text-sm border border-gray-300 rounded-md">
+                          <option>Majority Class Predictor</option>
+                          <option>Stratified Random Predictor</option>
+                          <option>Logistic Regression (default params)</option>
+                          <option>Custom Baseline</option>
+                        </select>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <input type="checkbox" id="significance" defaultChecked className="mr-2" />
+                        <label htmlFor="significance" className="text-sm">Statistical significance testing</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+              <h3 className="font-medium mb-3">Organizational Theory Integration</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
+                  <div className="font-medium text-sm mb-2">Research Question</div>
+                  <p className="text-sm text-gray-600">
+                    How do social network position metrics impact an employee's likelihood of promotion, controlling for traditional performance measures?
+                  </p>
+                  
+                  <div className="mt-3">
+                    <div className="text-xs font-medium text-gray-700 mb-1">Related OB Theories:</div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">Strength of Weak Ties</span>
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">Structural Holes</span>
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">Social Capital Theory</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
+                  <div className="font-medium text-sm mb-2">Hypotheses</div>
+                  <ul className="text-sm text-gray-600 space-y-2 pl-5 list-disc">
+                    <li>Higher betweenness centrality will be positively associated with promotion likelihood.</li>
+                    <li>Network position will demonstrate predictive value above traditional performance metrics.</li>
+                    <li>Employees with higher effective size (spanning structural holes) will show increased promotion rates.</li>
+                  </ul>
+                  
+                  <div className="mt-3 text-xs text-blue-700 flex items-center">
+                    <FileText size={14} className="mr-1" />
+                    <span>View reference literature</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'validation' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">Validation & Evaluation</h2>
+              <div className="flex space-x-2">
+                <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md flex items-center hover:bg-gray-50">
+                  <RefreshCw size={16} className="mr-1" />
+                  Re-run Validation
+                </button>
+                <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700">
+                  <Download size={16} className="mr-1" />
+                  Export Results
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'interpretation' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">Model Interpretation</h2>
+              <div className="flex space-x-2">
+                <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700">
+                  <Download size={16} className="mr-1" />
+                  Export Insights
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'nlp' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">NLP Analysis</h2>
+              <div className="flex space-x-2">
+                <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700">
+                  <Plus size={16} className="mr-1" />
+                  New NLP Analysis
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default MachineLearningModule;

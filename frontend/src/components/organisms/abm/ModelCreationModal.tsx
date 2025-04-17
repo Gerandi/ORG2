@@ -5,13 +5,22 @@ import Button from '../../atoms/Button';
 import Input from '../../atoms/Input';
 import Select from '../../atoms/Select';
 import Textarea from '../../atoms/Textarea';
-import { ABMModel, SpaceType, TheoryFramework } from '../../../types/abm';
+import { 
+  ABMModel, 
+  SpaceType, 
+  TheoryFramework,
+  AgentAttributeDefinition,
+  AgentStateVariableDefinition,
+  AgentBehaviorDefinition,
+  EnvironmentVariableDefinition,
+  AttributeType
+} from '../../../types/abm';
 import { Network } from '../../../types/network';
 import { useABMContext } from '../../../shared/contexts';
 
 interface ModelCreationModalProps {
   onClose: () => void;
-  onCreateModel: (model: Partial<ABMModel>) => Promise<void>;
+  onCreateModel: (model: any) => Promise<void>;
   networks: Network[];
 }
 
@@ -24,31 +33,218 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const [model, setModel] = useState<Partial<ABMModel>>({
+  const [model, setModel] = useState({
     name: '',
     description: '',
-    status: 'created',
-    attributes: {
-      num_agents: 100,
-      time_steps: 500,
-      space_type: 'network' as SpaceType,
-      theory_framework: 'social_influence' as TheoryFramework
-    }
+    simulation_type: 'social_influence' as TheoryFramework,
+    network_id: undefined as number | undefined,
+    agent_attributes: [
+      {
+        name: 'population_size',
+        type: 'number' as AttributeType,
+        default_value_json: 100,
+        min_value: 1,
+        max_value: 1000
+      }
+    ] as AgentAttributeDefinition[],
+    agent_state_variables: [] as AgentStateVariableDefinition[],
+    agent_behaviors: [] as AgentBehaviorDefinition[],
+    environment_variables: [
+      {
+        name: 'time_steps',
+        type: 'number' as AttributeType,
+        default_value_json: 500,
+        min_value: 1,
+        max_value: 10000
+      },
+      {
+        name: 'space_type',
+        type: 'string' as AttributeType,
+        default_value_json: 'network',
+        options_json: ['network', 'continuous', 'grid']
+      }
+    ] as EnvironmentVariableDefinition[]
   });
+
+  // Add appropriate state variables based on the theory framework
+  const updateStateVariablesByTheory = (theory: TheoryFramework) => {
+    const baseStateVars: AgentStateVariableDefinition[] = [];
+    
+    if (theory === 'social_influence') {
+      baseStateVars.push({
+        name: 'opinion',
+        type: 'number',
+        default_value_json: 0.5,
+        min_value: 0,
+        max_value: 1
+      });
+    } else if (theory === 'diffusion_of_innovations') {
+      baseStateVars.push({
+        name: 'adoption_status',
+        type: 'boolean',
+        default_value_json: false
+      });
+      baseStateVars.push({
+        name: 'adoption_threshold',
+        type: 'number',
+        default_value_json: 0.3,
+        min_value: 0,
+        max_value: 1
+      });
+    } else if (theory === 'team_assembly') {
+      baseStateVars.push({
+        name: 'skill_level',
+        type: 'number',
+        default_value_json: 0.5,
+        min_value: 0,
+        max_value: 1
+      });
+      baseStateVars.push({
+        name: 'team_id',
+        type: 'number',
+        default_value_json: -1
+      });
+    } else if (theory === 'organizational_learning') {
+      baseStateVars.push({
+        name: 'knowledge',
+        type: 'number',
+        default_value_json: 0.1,
+        min_value: 0,
+        max_value: 1
+      });
+    }
+    
+    return baseStateVars;
+  };
+  
+  // Update environment variables based on the theory framework
+  const updateEnvironmentVariablesByTheory = (theory: TheoryFramework) => {
+    const baseEnvVars = [...model.environment_variables];
+    
+    // Filter out any previous theory-specific variables
+    const genericEnvVars = baseEnvVars.filter(v => 
+      v.name === 'time_steps' || v.name === 'space_type'
+    );
+    
+    if (theory === 'social_influence') {
+      return [
+        ...genericEnvVars,
+        {
+          name: 'influence_strength',
+          type: 'number' as AttributeType,
+          default_value_json: 0.1,
+          min_value: 0,
+          max_value: 1
+        },
+        {
+          name: 'conformity_bias',
+          type: 'number' as AttributeType,
+          default_value_json: 0.3,
+          min_value: 0,
+          max_value: 1
+        }
+      ];
+    } else if (theory === 'diffusion_of_innovations') {
+      return [
+        ...genericEnvVars,
+        {
+          name: 'initial_adopters',
+          type: 'number' as AttributeType,
+          default_value_json: 0.05,
+          min_value: 0,
+          max_value: 1
+        },
+        {
+          name: 'influence_decay',
+          type: 'number' as AttributeType,
+          default_value_json: 0.1,
+          min_value: 0,
+          max_value: 1
+        }
+      ];
+    } else if (theory === 'team_assembly') {
+      return [
+        ...genericEnvVars,
+        {
+          name: 'skill_weight',
+          type: 'number' as AttributeType,
+          default_value_json: 0.5,
+          min_value: 0,
+          max_value: 1
+        },
+        {
+          name: 'social_weight',
+          type: 'number' as AttributeType,
+          default_value_json: 0.5,
+          min_value: 0,
+          max_value: 1
+        }
+      ];
+    } else if (theory === 'organizational_learning') {
+      return [
+        ...genericEnvVars,
+        {
+          name: 'learning_rate',
+          type: 'number' as AttributeType,
+          default_value_json: 0.2,
+          min_value: 0,
+          max_value: 1
+        },
+        {
+          name: 'forgetting_rate',
+          type: 'number' as AttributeType,
+          default_value_json: 0.05,
+          min_value: 0,
+          max_value: 0.5
+        }
+      ];
+    }
+    
+    return genericEnvVars;
+  };
+  
+  // Update agent behaviors based on the theory framework
+  const updateBehaviorsByTheory = (theory: TheoryFramework) => {
+    if (theory === 'social_influence') {
+      return [{
+        name: 'update_opinion',
+        description: 'Agents update their opinions based on their neighbors',
+        parameters_json: {}
+      }];
+    } else if (theory === 'diffusion_of_innovations') {
+      return [{
+        name: 'evaluate_adoption',
+        description: 'Agents decide whether to adopt an innovation',
+        parameters_json: {}
+      }];
+    } else if (theory === 'team_assembly') {
+      return [{
+        name: 'join_team',
+        description: 'Agents evaluate and join teams',
+        parameters_json: {}
+      }, {
+        name: 'collaborate',
+        description: 'Agents collaborate with team members',
+        parameters_json: {}
+      }];
+    } else if (theory === 'organizational_learning') {
+      return [{
+        name: 'learn',
+        description: 'Agents acquire new knowledge',
+        parameters_json: {}
+      }, {
+        name: 'share_knowledge',
+        description: 'Agents share knowledge with connected agents',
+        parameters_json: {}
+      }];
+    }
+    
+    return [];
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setModel(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleAttributeChange = (name: string, value: any) => {
-    setModel(prev => ({
-      ...prev,
-      attributes: {
-        ...prev.attributes,
-        [name]: value
-      }
-    }));
   };
 
   const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -61,7 +257,97 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
   
   const handleTheoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value as TheoryFramework;
-    handleAttributeChange('theory_framework', value);
+    setModel(prev => {
+      const newStateVars = updateStateVariablesByTheory(value);
+      const newEnvVars = updateEnvironmentVariablesByTheory(value);
+      const newBehaviors = updateBehaviorsByTheory(value);
+      
+      return {
+        ...prev,
+        simulation_type: value,
+        agent_state_variables: newStateVars,
+        environment_variables: newEnvVars,
+        agent_behaviors: newBehaviors
+      };
+    });
+  };
+  
+  const handleSpaceTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as SpaceType;
+    
+    setModel(prev => {
+      const updatedEnvVars = prev.environment_variables.map(v => {
+        if (v.name === 'space_type') {
+          return {
+            ...v,
+            default_value_json: value
+          };
+        }
+        return v;
+      });
+      
+      return {
+        ...prev,
+        environment_variables: updatedEnvVars
+      };
+    });
+  };
+  
+  const handlePopulationSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    
+    setModel(prev => {
+      const updatedAttrs = prev.agent_attributes.map(a => {
+        if (a.name === 'population_size') {
+          return {
+            ...a,
+            default_value_json: value
+          };
+        }
+        return a;
+      });
+      
+      return {
+        ...prev,
+        agent_attributes: updatedAttrs
+      };
+    });
+  };
+  
+  const handleTimeStepsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    
+    setModel(prev => {
+      const updatedEnvVars = prev.environment_variables.map(v => {
+        if (v.name === 'time_steps') {
+          return {
+            ...v,
+            default_value_json: value
+          };
+        }
+        return v;
+      });
+      
+      return {
+        ...prev,
+        environment_variables: updatedEnvVars
+      };
+    });
+  };
+
+  const getSpaceType = (): SpaceType => {
+    const spaceTypeVar = model.environment_variables.find(v => v.name === 'space_type');
+    return (spaceTypeVar?.default_value_json as SpaceType) || 'network';
+  };
+  
+  const getPopulationSize = (): number => {
+    const popSizeAttr = model.agent_attributes.find(a => a.name === 'population_size');
+    return (popSizeAttr?.default_value_json as number) || 100;
+  };
+  
+  const getTimeSteps = (): number => {
+    const timeStepsVar = model.environment_variables.find(v => v.name === 'time_steps');
+    return (timeStepsVar?.default_value_json as number) || 500;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,13 +358,21 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
       return;
     }
     
-    if (!model.attributes?.num_agents || model.attributes.num_agents <= 0) {
+    const populationSize = getPopulationSize();
+    if (populationSize <= 0) {
       setError('Number of agents must be greater than 0');
       return;
     }
     
-    if (!model.attributes?.time_steps || model.attributes.time_steps <= 0) {
+    const timeSteps = getTimeSteps();
+    if (timeSteps <= 0) {
       setError('Number of time steps must be greater than 0');
+      return;
+    }
+    
+    const spaceType = getSpaceType();
+    if (spaceType === 'network' && !model.network_id) {
+      setError('Network selection is required for network-based models');
       return;
     }
     
@@ -87,6 +381,7 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
     
     try {
       await onCreateModel(model);
+      onClose();
     } catch (err) {
       setError('Failed to create model. Please try again.');
       console.error(err);
@@ -138,13 +433,13 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="theory_framework" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="simulation_type" className="block text-sm font-medium text-gray-700 mb-1">
                   Theoretical Framework <span className="text-red-500">*</span>
                 </label>
                 <Select
-                  id="theory_framework"
-                  name="theory_framework"
-                  value={model.attributes?.theory_framework}
+                  id="simulation_type"
+                  name="simulation_type"
+                  value={model.simulation_type}
                   onChange={handleTheoryChange}
                   required
                 >
@@ -174,8 +469,8 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
                 <Select
                   id="space_type"
                   name="space_type"
-                  value={model.attributes?.space_type}
-                  onChange={(e) => handleAttributeChange('space_type', e.target.value)}
+                  value={getSpaceType()}
+                  onChange={handleSpaceTypeChange}
                   required
                 >
                   <option value="network">Network</option>
@@ -190,16 +485,16 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="num_agents" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="population_size" className="block text-sm font-medium text-gray-700 mb-1">
                   Number of Agents <span className="text-red-500">*</span>
                 </label>
                 <Input
-                  id="num_agents"
-                  name="num_agents"
+                  id="population_size"
+                  name="population_size"
                   type="number"
                   min="1"
-                  value={model.attributes?.num_agents || 100}
-                  onChange={(e) => handleAttributeChange('num_agents', parseInt(e.target.value))}
+                  value={getPopulationSize()}
+                  onChange={handlePopulationSizeChange}
                   required
                 />
                 <Text variant="caption" className="mt-1 text-xs text-gray-500">
@@ -216,8 +511,8 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
                   name="time_steps"
                   type="number"
                   min="1"
-                  value={model.attributes?.time_steps || 500}
-                  onChange={(e) => handleAttributeChange('time_steps', parseInt(e.target.value))}
+                  value={getTimeSteps()}
+                  onChange={handleTimeStepsChange}
                   required
                 />
                 <Text variant="caption" className="mt-1 text-xs text-gray-500">
@@ -228,15 +523,15 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
             
             <div>
               <label htmlFor="network_id" className="block text-sm font-medium text-gray-700 mb-1">
-                Network Source {model.attributes?.space_type === 'network' && <span className="text-red-500">*</span>}
+                Network Source {getSpaceType() === 'network' && <span className="text-red-500">*</span>}
               </label>
               <Select
                 id="network_id"
                 name="network_id"
                 value={model.network_id?.toString() || ''}
                 onChange={handleNetworkChange}
-                disabled={model.attributes?.space_type !== 'network'}
-                required={model.attributes?.space_type === 'network'}
+                disabled={getSpaceType() !== 'network'}
+                required={getSpaceType() === 'network'}
               >
                 <option value="">No network (generate synthetic)</option>
                 {networks.map(network => (
@@ -246,7 +541,7 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
                 ))}
               </Select>
               <Text variant="caption" className="mt-1 text-xs text-gray-500">
-                {model.attributes?.space_type === 'network' 
+                {getSpaceType() === 'network' 
                   ? 'Select an existing network or generate a synthetic one' 
                   : 'Network selection only applies for network-based models'}
               </Text>

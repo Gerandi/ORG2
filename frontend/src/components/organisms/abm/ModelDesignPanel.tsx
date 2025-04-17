@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
-import { ABMModel, AgentDefinition, EnvironmentDefinition } from '../../../types/abm';
+import React, { useState, useEffect } from 'react';
+import { 
+  ABMModel, 
+  AgentAttributeDefinition, 
+  AgentStateVariableDefinition, 
+  AgentBehaviorDefinition, 
+  EnvironmentVariableDefinition,
+  AttributeType,
+  SpaceType
+} from '../../../types/abm';
 import { Network } from '../../../types/network';
 import Card from '../../atoms/Card';
 import { Heading, Text } from '../../atoms/Typography';
@@ -27,110 +35,209 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
   const { theories } = useABMContext();
   const [isLoading, setIsLoading] = useState(false);
   const [isCodeView, setIsCodeView] = useState(false);
-  const [agentDefinition, setAgentDefinition] = useState<AgentDefinition>({
-    attributes: [
-      { name: 'role', type: 'string', default: 'employee' },
-      { name: 'department', type: 'string', default: 'sales' },
-      { name: 'knowledge_level', type: 'number', default: 0.5, min: 0, max: 1 },
-      { name: 'communication_rate', type: 'number', default: 0.2, min: 0, max: 1 },
-      { name: 'influence', type: 'number', default: 0.3, min: 0, max: 1 }
-    ],
-    state_variables: [
-      { name: 'innovation_adoption', type: 'boolean', default: false },
-      { name: 'knowledge', type: 'number', default: 0.0, min: 0, max: 1 },
-      { name: 'satisfaction', type: 'number', default: 0.7, min: 0, max: 1 }
-    ],
-    behaviors: [
-      { 
-        name: 'knowledge_transfer', 
-        description: 'Agents share knowledge with connected agents based on communication rate and proximity.',
-        parameters: { efficiency: 0.1 }
-      },
-      { 
-        name: 'innovation_adoption', 
-        description: 'Agents may adopt innovation based on threshold model of collective behavior.',
-        parameters: { threshold: 0.3 }
-      }
-    ]
-  });
-  
-  const [environmentDefinition, setEnvironmentDefinition] = useState<EnvironmentDefinition>({
-    type: 'network',
-    parameters: {
-      topology: 'import',
-      dynamic: false
-    },
-    global_variables: [
-      { name: 'innovation_seed_pct', type: 'number', default: 0.05 },
-      { name: 'knowledge_decay_rate', type: 'number', default: 0.01 },
-      { name: 'org_hierarchy_strength', type: 'number', default: 0.7 }
-    ]
-  });
+  const [localModel, setLocalModel] = useState<ABMModel | null>(model);
+
+  // Update local state when model changes from parent
+  useEffect(() => {
+    setLocalModel(model);
+  }, [model]);
 
   // Get the selected theory details
-  const selectedTheory = model ? 
-    theories.find(t => t.id === model.attributes.theory_framework) : null;
+  const selectedTheory = localModel ? 
+    theories.find(t => t.id === localModel.simulation_type) : null;
+
+  // Helper function to find space type in environment variables
+  const getSpaceType = (): SpaceType => {
+    if (!localModel) return 'network';
+    const spaceTypeVar = localModel.environment_variables.find(v => v.name === 'space_type');
+    return (spaceTypeVar?.default_value_json as SpaceType) || 'network';
+  };
+  
+  // Helper function to find population size in agent attributes
+  const getPopulationSize = (): number => {
+    if (!localModel) return 100;
+    const popSizeAttr = localModel.agent_attributes.find(a => a.name === 'population_size');
+    return (popSizeAttr?.default_value_json as number) || 100;
+  };
+  
+  // Helper function to find time steps in environment variables
+  const getTimeSteps = (): number => {
+    if (!localModel) return 500;
+    const timeStepsVar = localModel.environment_variables.find(v => v.name === 'time_steps');
+    return (timeStepsVar?.default_value_json as number) || 500;
+  };
 
   const handleAddAttribute = () => {
-    setAgentDefinition(prev => ({
-      ...prev,
-      attributes: [
-        ...prev.attributes,
-        { name: `attribute_${prev.attributes.length + 1}`, type: 'number', default: 0 }
-      ]
-    }));
+    if (!localModel) return;
+    
+    setLocalModel(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        agent_attributes: [
+          ...prev.agent_attributes,
+          { 
+            name: `attribute_${prev.agent_attributes.length + 1}`, 
+            type: 'number' as AttributeType, 
+            default_value_json: 0 
+          }
+        ]
+      };
+    });
   };
 
   const handleAddStateVariable = () => {
-    setAgentDefinition(prev => ({
-      ...prev,
-      state_variables: [
-        ...prev.state_variables,
-        { name: `variable_${prev.state_variables.length + 1}`, type: 'number', default: 0 }
-      ]
-    }));
+    if (!localModel) return;
+    
+    setLocalModel(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        agent_state_variables: [
+          ...prev.agent_state_variables,
+          { 
+            name: `variable_${prev.agent_state_variables.length + 1}`, 
+            type: 'number' as AttributeType, 
+            default_value_json: 0 
+          }
+        ]
+      };
+    });
   };
 
   const handleAddBehavior = () => {
-    setAgentDefinition(prev => ({
-      ...prev,
-      behaviors: [
-        ...prev.behaviors,
-        { 
-          name: `behavior_${prev.behaviors.length + 1}`, 
-          description: 'New behavior description', 
-          parameters: {} 
-        }
-      ]
-    }));
+    if (!localModel) return;
+    
+    setLocalModel(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        agent_behaviors: [
+          ...prev.agent_behaviors,
+          { 
+            name: `behavior_${prev.agent_behaviors.length + 1}`, 
+            description: 'New behavior description', 
+            parameters_json: {} 
+          }
+        ]
+      };
+    });
   };
 
   const handleAddEnvironmentVariable = () => {
-    setEnvironmentDefinition(prev => ({
-      ...prev,
-      global_variables: [
-        ...prev.global_variables,
-        { name: `env_var_${prev.global_variables.length + 1}`, type: 'number', default: 0 }
-      ]
-    }));
+    if (!localModel) return;
+    
+    setLocalModel(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        environment_variables: [
+          ...prev.environment_variables,
+          { 
+            name: `env_var_${prev.environment_variables.length + 1}`, 
+            type: 'number' as AttributeType, 
+            default_value_json: 0 
+          }
+        ]
+      };
+    });
+  };
+
+  const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setLocalModel(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        network_id: value ? parseInt(value, 10) : undefined
+      };
+    });
+  };
+  
+  const handleSpaceTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as SpaceType;
+    
+    setLocalModel(prev => {
+      if (!prev) return prev;
+      
+      const updatedEnvVars = prev.environment_variables.map(v => {
+        if (v.name === 'space_type') {
+          return {
+            ...v,
+            default_value_json: value
+          };
+        }
+        return v;
+      });
+      
+      return {
+        ...prev,
+        environment_variables: updatedEnvVars
+      };
+    });
+  };
+  
+  const handleTimeStepsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    
+    setLocalModel(prev => {
+      if (!prev) return prev;
+      
+      const updatedEnvVars = prev.environment_variables.map(v => {
+        if (v.name === 'time_steps') {
+          return {
+            ...v,
+            default_value_json: value
+          };
+        }
+        return v;
+      });
+      
+      return {
+        ...prev,
+        environment_variables: updatedEnvVars
+      };
+    });
+  };
+
+  const handlePopulationSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    
+    setLocalModel(prev => {
+      if (!prev) return prev;
+      
+      const updatedAttrs = prev.agent_attributes.map(a => {
+        if (a.name === 'population_size') {
+          return {
+            ...a,
+            default_value_json: value
+          };
+        }
+        return a;
+      });
+      
+      return {
+        ...prev,
+        agent_attributes: updatedAttrs
+      };
+    });
   };
 
   const handleSaveModel = async () => {
-    if (!model) return;
+    if (!localModel) return;
     
     setIsLoading(true);
     try {
-      // Copy the agent definition and environment definition to the model's attributes
       const updatedModel: Partial<ABMModel> = {
         status: 'configured',
-        attributes: {
-          ...model.attributes,
-          agent_definition: agentDefinition,
-          environment_definition: environmentDefinition
-        }
+        agent_attributes: localModel.agent_attributes,
+        agent_state_variables: localModel.agent_state_variables,
+        agent_behaviors: localModel.agent_behaviors,
+        environment_variables: localModel.environment_variables,
+        network_id: localModel.network_id
       };
       
-      await onUpdateModel(model.id, updatedModel);
+      await onUpdateModel(localModel.id, updatedModel);
     } catch (error) {
       console.error("Error saving model:", error);
     } finally {
@@ -138,7 +245,7 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
     }
   };
 
-  if (!model) {
+  if (!localModel) {
     return (
       <Card>
         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -155,7 +262,7 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <Heading level={3}>Model Design: {model.name}</Heading>
+        <Heading level={3}>Model Design: {localModel.name}</Heading>
         <div className="flex space-x-2">
           <Button 
             variant="outline" 
@@ -188,7 +295,7 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
           <div className="space-y-4">
             <div className="p-3 border border-gray-200 rounded-md">
               <div className="flex items-center justify-between mb-2">
-                <Text variant="p" className="font-medium">Agent Type: Employee</Text>
+                <Text variant="p" className="font-medium">Agent Type: {localModel.simulation_type === 'team_assembly' ? 'Team Member' : 'Employee'}</Text>
                 <Button variant="text" className="text-orange-600 text-xs">Edit</Button>
               </div>
               
@@ -205,7 +312,7 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {agentDefinition.attributes.map((attr, index) => (
+                        {localModel.agent_attributes.map((attr, index) => (
                           <tr key={index} className={attr.name.includes('betweenness') ? 'bg-blue-50' : ''}>
                             <td className={`px-3 py-1 whitespace-nowrap text-xs ${attr.name.includes('betweenness') ? 'font-medium text-blue-700' : ''}`}>
                               {attr.name}
@@ -214,9 +321,9 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                               {attr.type}
                             </td>
                             <td className="px-3 py-1 whitespace-nowrap text-xs">
-                              {typeof attr.default === 'boolean' 
-                                ? attr.default.toString() 
-                                : attr.default}
+                              {attr.default_value_json === true || attr.default_value_json === false 
+                                ? attr.default_value_json.toString() 
+                                : attr.default_value_json}
                             </td>
                           </tr>
                         ))}
@@ -246,7 +353,7 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {agentDefinition.state_variables.map((variable, index) => (
+                        {localModel.agent_state_variables.map((variable, index) => (
                           <tr key={index}>
                             <td className="px-3 py-1 whitespace-nowrap text-xs">
                               {variable.name}
@@ -255,9 +362,9 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                               {variable.type}
                             </td>
                             <td className="px-3 py-1 whitespace-nowrap text-xs">
-                              {typeof variable.default === 'boolean' 
-                                ? variable.default.toString() 
-                                : variable.default}
+                              {variable.default_value_json === true || variable.default_value_json === false
+                                ? variable.default_value_json.toString() 
+                                : variable.default_value_json}
                             </td>
                           </tr>
                         ))}
@@ -288,10 +395,8 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                   <Input 
                     type="number" 
                     min="1"
-                    value={model.attributes.num_agents}
-                    onChange={(e) => {
-                      // This would typically update the model attributes
-                    }}
+                    value={getPopulationSize()}
+                    onChange={handlePopulationSizeChange}
                   />
                 </div>
                 
@@ -311,7 +416,7 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                     <option value="employee_metrics">Employee Performance Metrics (XLSX)</option>
                     <option value="communication_network">Employee Communication Network</option>
                   </Select>
-                  {model.network_id && (
+                  {localModel.network_id && (
                     <Text variant="caption" className="mt-1 text-xs text-green-600 flex items-center">
                       <span className="mr-1">✓</span>
                       Network metrics will be imported as agent attributes
@@ -331,7 +436,7 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
           </div>
           
           <div className="space-y-4">
-            {agentDefinition.behaviors.map((behavior, index) => (
+            {localModel.agent_behaviors.map((behavior, index) => (
               <div key={index} className="p-3 border border-gray-200 rounded-md">
                 <div className="flex items-center justify-between mb-2">
                   <Text variant="p" className="font-medium">Rule: {behavior.name}</Text>
@@ -344,29 +449,49 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                 
                 <div className="bg-gray-50 p-2 rounded border border-gray-200 text-xs font-mono overflow-x-auto">
                   <pre>
-                    {behavior.name === 'knowledge_transfer' ? 
-                    `def knowledge_transfer(agent, neighbors):
+                    {behavior.name === 'update_opinion' ? 
+                    `def update_opinion(agent, neighbors):
+    if not neighbors:
+        return
+        
+    # Get opinions of neighbors
+    neighbor_opinions = []
     for neighbor in neighbors:
-        if random.random() < agent.communication_rate:
-            knowledge_delta = ${behavior.parameters?.efficiency} * (agent.knowledge_level - 
-                           neighbor.knowledge_level)
-            if knowledge_delta > 0:
-                neighbor.knowledge += knowledge_delta
-                agent.knowledge -= knowledge_delta * 0.1` :
+        neighbor_opinions.append(neighbor.opinion)
+        
+    if not neighbor_opinions:
+        return
+        
+    # Calculate influence
+    influence_strength = model.influence_strength
+    conformity_bias = model.conformity_bias
+    
+    # Simple average of neighbor opinions
+    average_opinion = sum(neighbor_opinions) / len(neighbor_opinions)
+    
+    # Update opinion with influence and conformity bias
+    opinion_difference = average_opinion - agent.opinion
+    conformity_effect = conformity_bias * opinion_difference
+    
+    # Final opinion update
+    agent.opinion += influence_strength * opinion_difference + conformity_effect
+    
+    # Ensure opinion stays within bounds
+    agent.opinion = max(0, min(1, agent.opinion))` :
                     
-                    behavior.name === 'innovation_adoption' ?
-                    `def innovation_adoption(agent, neighbors):
-    if agent.innovation_adoption:
+                    behavior.name === 'evaluate_adoption' ?
+                    `def evaluate_adoption(agent, neighbors):
+    if agent.adoption_status:
         return  # Already adopted
         
     # Count adopters in network neighborhood
     adopter_count = sum(1 for n in neighbors 
-                     if n.innovation_adoption)
-    adoption_threshold = ${behavior.parameters?.threshold} - (0.1 * agent.influence)
-    
-    # Adopt if threshold is met
-    if adopter_count / max(1, len(neighbors)) > adoption_threshold:
-        agent.innovation_adoption = True` :
+                     if n.adoption_status)
+                     
+    # Check if threshold is exceeded
+    if adopter_count / max(1, len(neighbors)) > agent.adoption_threshold:
+        agent.adoption_status = True
+        agent.adoption_time = model.schedule.time` :
                       
                     `def ${behavior.name}(agent, neighbors):
     # Implement behavior logic here
@@ -374,7 +499,7 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                   </pre>
                 </div>
                 
-                {behavior.name.includes('knowledge') && (
+                {behavior.name.includes('opinion') && (
                   <div className="mt-2 text-xs">
                     <div className="flex items-center">
                       <FileText size={12} className="mr-1 text-orange-600" />
@@ -383,7 +508,7 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                   </div>
                 )}
                 
-                {behavior.name.includes('innovation') && (
+                {behavior.name.includes('adoption') && (
                   <div className="mt-2 text-xs">
                     <div className="flex items-center">
                       <FileText size={12} className="mr-1 text-orange-600" />
@@ -422,33 +547,23 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
               
               <div className="space-y-3">
                 <div>
-                  <Text variant="caption" className="text-gray-500 mb-1">Topology Type</Text>
+                  <Text variant="caption" className="text-gray-500 mb-1">Space Type</Text>
                   <Select
-                    value={environmentDefinition.parameters.topology as string}
-                    onChange={(e) => setEnvironmentDefinition(prev => ({
-                      ...prev,
-                      parameters: {
-                        ...prev.parameters,
-                        topology: e.target.value
-                      }
-                    }))}
+                    value={getSpaceType()}
+                    onChange={handleSpaceTypeChange}
                   >
-                    <option value="random">Random</option>
-                    <option value="small_world">Small-world</option>
-                    <option value="scale_free">Scale-free</option>
-                    <option value="complete">Complete</option>
-                    <option value="import">Import from SNA</option>
+                    <option value="network">Network</option>
+                    <option value="continuous">Continuous Space</option>
+                    <option value="grid">Grid</option>
                   </Select>
                 </div>
                 
                 <div>
                   <Text variant="caption" className="text-gray-500 mb-1">Network Source</Text>
                   <Select
-                    value={model.network_id?.toString() || ''}
-                    onChange={(e) => {
-                      // This would typically update the model
-                    }}
-                    disabled={environmentDefinition.parameters.topology !== 'import'}
+                    value={localModel.network_id?.toString() || ''}
+                    onChange={handleNetworkChange}
+                    disabled={getSpaceType() !== 'network'}
                   >
                     <option value="">Select a network</option>
                     {networks.map(network => (
@@ -462,14 +577,10 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                 <div className="flex items-center">
                   <Checkbox
                     id="dynamic-network"
-                    checked={environmentDefinition.parameters.dynamic as boolean}
-                    onChange={(e) => setEnvironmentDefinition(prev => ({
-                      ...prev,
-                      parameters: {
-                        ...prev.parameters,
-                        dynamic: e.target.checked
-                      }
-                    }))}
+                    checked={false}
+                    onChange={(e) => {
+                      // This would typically update some environment variable
+                    }}
                   />
                   <label htmlFor="dynamic-network" className="ml-2 text-sm">
                     Dynamic network (evolves during simulation)
@@ -494,7 +605,7 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {environmentDefinition.global_variables.map((variable, index) => (
+                      {localModel.environment_variables.map((variable, index) => (
                         <tr key={index}>
                           <td className="px-3 py-1 whitespace-nowrap text-xs">
                             {variable.name}
@@ -503,7 +614,9 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                             {variable.type}
                           </td>
                           <td className="px-3 py-1 whitespace-nowrap text-xs">
-                            {variable.default}
+                            {variable.default_value_json === true || variable.default_value_json === false 
+                              ? variable.default_value_json.toString() 
+                              : variable.default_value_json}
                           </td>
                         </tr>
                       ))}
@@ -542,10 +655,8 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
                   <Input 
                     type="number"
                     min="1"
-                    value={model.attributes.time_steps}
-                    onChange={(e) => {
-                      // This would typically update the model attributes
-                    }}
+                    value={getTimeSteps()}
+                    onChange={handleTimeStepsChange}
                   />
                 </div>
               </div>
@@ -561,20 +672,29 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
           <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
             <Text variant="p" className="font-medium text-sm mb-2">Research Question</Text>
             <Text variant="p" className="text-sm text-gray-600">
-              How does organizational network structure influence the diffusion of innovations and knowledge sharing within an organization?
+              {localModel.simulation_type === 'social_influence' ? 
+                "How does organizational network structure influence the spread of opinions and conformity in organizations?" :
+               localModel.simulation_type === 'diffusion_of_innovations' ?
+                "How do innovations diffuse through an organizational network?" :
+               localModel.simulation_type === 'team_assembly' ?
+                "What team assembly mechanisms optimize team performance?" :
+                "How does organizational network structure influence knowledge sharing within an organization?"}
             </Text>
             
             <div className="mt-3">
               <Text variant="p" className="text-xs font-medium text-gray-700 mb-1">Related OB Theories:</Text>
               <div className="flex flex-wrap gap-2">
                 <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-xs">
-                  {selectedTheory?.name || 'Social Influence'}
-                </span>
-                <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-xs">
-                  Social Learning Theory
+                  {selectedTheory?.name || localModel.simulation_type}
                 </span>
                 <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-xs">
                   Social Network Theory
+                </span>
+                <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-xs">
+                  {localModel.simulation_type === 'social_influence' ? 'Group Dynamics' : 
+                   localModel.simulation_type === 'diffusion_of_innovations' ? 'Innovation Theory' :
+                   localModel.simulation_type === 'team_assembly' ? 'Team Formation Theory' : 
+                   'Organizational Learning'}
                 </span>
               </div>
             </div>
@@ -584,26 +704,37 @@ const ModelDesignPanel: React.FC<ModelDesignPanelProps> = ({
             <Text variant="p" className="font-medium text-sm mb-2">Model Parameters Grounding</Text>
             <div className="space-y-2 text-sm text-gray-600">
               <div className="flex items-start">
-                <div className="w-28 text-xs font-medium text-gray-700">Knowledge Transfer:</div>
+                <div className="w-28 text-xs font-medium text-gray-700">
+                  {localModel.simulation_type === 'social_influence' ? 'Opinion Dynamics:' :
+                   localModel.simulation_type === 'diffusion_of_innovations' ? 'Adoption Process:' :
+                   localModel.simulation_type === 'team_assembly' ? 'Team Formation:' : 
+                   'Knowledge Transfer:'}
+                </div>
                 <div className="flex-1 text-xs">
-                  Based on empirical studies of knowledge transfer in R&D teams (Chen et al., 2023)
+                  {localModel.simulation_type === 'social_influence' ? 
+                    'Based on models of opinion formation in social networks (Friedkin & Johnsen, 2011)' :
+                   localModel.simulation_type === 'diffusion_of_innovations' ?
+                    "Based on Rogers' Diffusion of Innovations framework (Rogers, 2003)" :
+                   localModel.simulation_type === 'team_assembly' ?
+                    'Based on team assembly mechanisms in collaborative networks (Guimerà et al., 2005)' :
+                    'Based on empirical studies of knowledge transfer in organizations (Argote & Ingram, 2000)'}
                 </div>
               </div>
               <div className="flex items-start">
-                <div className="w-28 text-xs font-medium text-gray-700">Innovation Adoption:</div>
+                <div className="w-28 text-xs font-medium text-gray-700">Parameter Values:</div>
                 <div className="flex-1 text-xs">
-                  Calibrated using threshold values from Rogers' Diffusion of Innovation framework
+                  Calibrated using empirical findings from organizational behavior research
                 </div>
               </div>
               <div className="flex items-start">
                 <div className="w-28 text-xs font-medium text-gray-700">Network Structure:</div>
                 <div className="flex-1 text-xs">
-                  {model.network_id ? 'Imported directly from empirical communication network data' : 'Synthetically generated based on organizational network literature'}
+                  {localModel.network_id ? 'Imported directly from empirical communication network data' : 'Synthetically generated based on organizational network literature'}
                 </div>
               </div>
             </div>
             
-            <div className="mt-3 text-xs text-orange-700 flex items-center">
+            <div className="mt-3 text-xs text-orange-700 flex items-center cursor-pointer">
               <FileText size={14} className="mr-1" />
               <span>View reference literature</span>
             </div>

@@ -1,7 +1,28 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { ABMModel, Simulation, SimulationResults, Theory } from '../../types/abm';
+import { 
+  ABMModel, 
+  Simulation, 
+  SimulationResults, 
+  Theory,
+  AgentAttributeDefinition,
+  AgentStateVariableDefinition,
+  AgentBehaviorDefinition,
+  EnvironmentVariableDefinition 
+} from '../../types/abm';
 import { abmService } from '../services';
 import { useAuthContext } from './AuthContext';
+
+interface CreateModelParams {
+  name: string;
+  description?: string;
+  project_id?: number;
+  network_id?: number;
+  simulation_type: string;
+  agent_attributes?: AgentAttributeDefinition[];
+  agent_state_variables?: AgentStateVariableDefinition[];
+  agent_behaviors?: AgentBehaviorDefinition[];
+  environment_variables?: EnvironmentVariableDefinition[];
+}
 
 interface ABMContextProps {
   models: ABMModel[];
@@ -14,7 +35,7 @@ interface ABMContextProps {
   error: string | null;
   fetchModels: (projectId?: number) => Promise<void>;
   selectModel: (id: number) => Promise<void>;
-  createModel: (model: Partial<ABMModel>) => Promise<void>;
+  createModel: (model: CreateModelParams) => Promise<void>;
   updateModel: (id: number, model: Partial<ABMModel>) => Promise<void>;
   deleteModel: (id: number) => Promise<void>;
   fetchSimulations: (projectId?: number) => Promise<void>;
@@ -68,12 +89,12 @@ export const ABMProvider: React.FC<{children: React.ReactNode}> = ({ children })
     }
   }, []);
   
-  const createModel = useCallback(async (model: Partial<ABMModel>): Promise<void> => {
+  const createModel = useCallback(async (modelParams: CreateModelParams): Promise<void> => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const newModel = await abmService.createModel(model);
+      const newModel = await abmService.createModel(modelParams);
       setModels(prevModels => [...prevModels, newModel]);
     } catch (err) {
       setError('Failed to create ABM model');

@@ -1,5 +1,14 @@
 import apiService from './api';
-import { ABMModel, Simulation, SimulationResults, Theory } from '../../types/abm';
+import { 
+  ABMModel, 
+  Simulation, 
+  SimulationResults, 
+  Theory,
+  AgentAttributeDefinition,
+  AgentStateVariableDefinition,
+  AgentBehaviorDefinition,
+  EnvironmentVariableDefinition
+} from '../../types/abm';
 
 interface CreateModelOptions {
   name: string;
@@ -7,7 +16,10 @@ interface CreateModelOptions {
   project_id?: number;
   network_id?: number;
   simulation_type: string;
-  attributes?: Record<string, any>;
+  agent_attributes?: AgentAttributeDefinition[];
+  agent_state_variables?: AgentStateVariableDefinition[];
+  agent_behaviors?: AgentBehaviorDefinition[];
+  environment_variables?: EnvironmentVariableDefinition[];
 }
 
 interface CreateSimulationOptions {
@@ -62,7 +74,18 @@ class ABMService {
   // Create a new ABM model
   public async createModel(options: CreateModelOptions): Promise<ABMModel> {
     try {
-      return await apiService.post<ABMModel>(`${this.baseUrl}/models`, options);
+      const payload = {
+        name: options.name,
+        description: options.description,
+        project_id: options.project_id,
+        network_id: options.network_id,
+        simulation_type: options.simulation_type,
+        agent_attributes: options.agent_attributes || [],
+        agent_state_variables: options.agent_state_variables || [],
+        agent_behaviors: options.agent_behaviors || [],
+        environment_variables: options.environment_variables || []
+      };
+      return await apiService.post<ABMModel>(`${this.baseUrl}/models`, payload);
     } catch (error) {
       console.error('Error creating ABM model:', error);
       throw error;

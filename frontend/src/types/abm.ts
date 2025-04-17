@@ -2,6 +2,44 @@ export type ModelStatus = 'created' | 'configured' | 'running' | 'error';
 export type SimulationStatus = 'created' | 'running' | 'completed' | 'error';
 export type SpaceType = 'network' | 'continuous' | 'grid';
 export type TheoryFramework = 'social_influence' | 'diffusion_of_innovations' | 'team_assembly' | 'organizational_learning';
+export type AttributeType = 'string' | 'number' | 'boolean' | 'categorical';
+
+export interface AgentAttributeDefinition {
+  id?: number;
+  name: string;
+  type: AttributeType;
+  default_value_json?: any;
+  min_value?: number;
+  max_value?: number;
+  options_json?: any[] | null;
+}
+
+export interface AgentStateVariableDefinition {
+  id?: number;
+  name: string;
+  type: AttributeType;
+  default_value_json?: any;
+  min_value?: number;
+  max_value?: number;
+  options_json?: any[] | null;
+}
+
+export interface AgentBehaviorDefinition {
+  id?: number;
+  name: string;
+  description?: string;
+  parameters_json?: Record<string, any>;
+}
+
+export interface EnvironmentVariableDefinition {
+  id?: number;
+  name: string;
+  type: AttributeType;
+  default_value_json?: any;
+  min_value?: number;
+  max_value?: number;
+  options_json?: any[] | null;
+}
 
 export interface ABMModel {
   id: number;
@@ -12,13 +50,11 @@ export interface ABMModel {
   project_id?: number;
   network_id?: number;
   status: ModelStatus;
-  attributes: {
-    num_agents: number;
-    time_steps: number;
-    space_type: SpaceType;
-    theory_framework: TheoryFramework;
-    [key: string]: any;
-  };
+  simulation_type: TheoryFramework;
+  agent_attributes: AgentAttributeDefinition[];
+  agent_state_variables: AgentStateVariableDefinition[];
+  agent_behaviors: AgentBehaviorDefinition[];
+  environment_variables: EnvironmentVariableDefinition[];
 }
 
 export interface Simulation {
@@ -63,40 +99,6 @@ export interface Theory {
   description: string;
   key_parameters: TheoryParameter[];
   references: string[];
-}
-
-export interface AgentDefinition {
-  attributes: {
-    name: string;
-    type: 'string' | 'number' | 'boolean' | 'categorical';
-    default?: any;
-    options?: string[];
-    min?: number;
-    max?: number;
-  }[];
-  state_variables: {
-    name: string;
-    type: 'string' | 'number' | 'boolean' | 'categorical';
-    default?: any;
-    options?: string[];
-    min?: number;
-    max?: number;
-  }[];
-  behaviors: {
-    name: string;
-    description: string;
-    parameters?: Record<string, any>;
-  }[];
-}
-
-export interface EnvironmentDefinition {
-  type: SpaceType;
-  parameters: Record<string, any>;
-  global_variables: {
-    name: string;
-    type: 'string' | 'number' | 'boolean' | 'categorical';
-    default?: any;
-  }[];
 }
 
 export interface SimulationRun {

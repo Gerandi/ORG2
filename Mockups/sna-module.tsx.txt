@@ -1,0 +1,848 @@
+import React, { useState } from 'react';
+import { Network, Share2, Download, RefreshCw, Search, Filter, Settings, FileText, Users, ChevronDown, Plus, Maximize2, BarChart2, ZoomIn, ZoomOut, Database } from 'lucide-react';
+
+const SocialNetworkAnalysisModule = () => {
+  const [activeTab, setActiveTab] = useState('visualization');
+  const [showMetricsPanel, setShowMetricsPanel] = useState(true);
+  const [selectedNode, setSelectedNode] = useState(null);
+
+  return (
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Module Header */}
+      <div className="bg-white border-b border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Network className="text-purple-600 mr-2" size={24} />
+            <h1 className="text-xl font-semibold">Social Network Analysis</h1>
+          </div>
+          <div className="flex space-x-2">
+            <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md flex items-center hover:bg-gray-50">
+              <RefreshCw size={16} className="mr-1" />
+              Refresh
+            </button>
+            <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md flex items-center hover:bg-gray-50">
+              <Download size={16} className="mr-1" />
+              Export
+            </button>
+            <button className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-md flex items-center hover:bg-purple-700">
+              <Plus size={16} className="mr-1" />
+              New Network
+            </button>
+          </div>
+        </div>
+        
+        {/* Module Tabs */}
+        <div className="flex space-x-4 mt-6 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('visualization')}
+            className={`pb-2 px-1 ${
+              activeTab === 'visualization'
+                ? 'text-purple-600 border-b-2 border-purple-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Network Visualization
+          </button>
+          <button
+            onClick={() => setActiveTab('metrics')}
+            className={`pb-2 px-1 ${
+              activeTab === 'metrics'
+                ? 'text-purple-600 border-b-2 border-purple-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Network Metrics
+          </button>
+          <button
+            onClick={() => setActiveTab('communities')}
+            className={`pb-2 px-1 ${
+              activeTab === 'communities'
+                ? 'text-purple-600 border-b-2 border-purple-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Community Detection
+          </button>
+          <button
+            onClick={() => setActiveTab('prediction')}
+            className={`pb-2 px-1 ${
+              activeTab === 'prediction'
+                ? 'text-purple-600 border-b-2 border-purple-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Link Prediction
+          </button>
+          <button
+            onClick={() => setActiveTab('dynamics')}
+            className={`pb-2 px-1 ${
+              activeTab === 'dynamics'
+                ? 'text-purple-600 border-b-2 border-purple-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Dynamic Analysis
+          </button>
+        </div>
+      </div>
+      
+      {/* Module Content */}
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'visualization' && (
+          <div className="flex h-full">
+            {/* Left Panel - Controls */}
+            <div className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col overflow-y-auto">
+              <div className="mb-6">
+                <h3 className="text-sm font-medium mb-2">Network Selection</h3>
+                <select className="w-full p-2 text-sm border border-gray-300 rounded-md">
+                  <option>Employee Communication Network</option>
+                  <option>Team Collaboration Network</option>
+                  <option>Knowledge Sharing Network</option>
+                  <option>Influence Network</option>
+                </select>
+              </div>
+              
+              <div className="mb-6">
+                <h3 className="text-sm font-medium mb-2">Layout</h3>
+                <select className="w-full p-2 text-sm border border-gray-300 rounded-md">
+                  <option>Force-directed (Fruchterman-Reingold)</option>
+                  <option>Circular</option>
+                  <option>Hierarchical</option>
+                  <option>Radial</option>
+                </select>
+              </div>
+              
+              <div className="mb-6">
+                <h3 className="text-sm font-medium mb-2">Node Attributes</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Size by</label>
+                    <select className="w-full p-2 text-sm border border-gray-300 rounded-md">
+                      <option>Degree Centrality</option>
+                      <option>Betweenness Centrality</option>
+                      <option>Closeness Centrality</option>
+                      <option>Eigenvector Centrality</option>
+                      <option>Uniform Size</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Color by</label>
+                    <select className="w-full p-2 text-sm border border-gray-300 rounded-md">
+                      <option>Department</option>
+                      <option>Role</option>
+                      <option>Team</option>
+                      <option>Performance</option>
+                      <option>Tenure</option>
+                      <option>Community</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Label by</label>
+                    <select className="w-full p-2 text-sm border border-gray-300 rounded-md">
+                      <option>ID</option>
+                      <option>Name</option>
+                      <option>Role</option>
+                      <option>None</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <h3 className="text-sm font-medium mb-2">Edge Attributes</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Width by</label>
+                    <select className="w-full p-2 text-sm border border-gray-300 rounded-md">
+                      <option>Tie Strength</option>
+                      <option>Communication Frequency</option>
+                      <option>Duration</option>
+                      <option>Uniform Width</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Color by</label>
+                    <select className="w-full p-2 text-sm border border-gray-300 rounded-md">
+                      <option>Channel Type</option>
+                      <option>Relationship Type</option>
+                      <option>Uniform Color</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center mt-2">
+                    <input type="checkbox" id="show-arrows" className="mr-2" defaultChecked />
+                    <label htmlFor="show-arrows" className="text-sm">Show arrows (directed)</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <h3 className="text-sm font-medium mb-2">Filters</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Tie Strength Threshold</label>
+                    <div className="flex items-center space-x-2">
+                      <input type="range" className="flex-1" min="0" max="10" defaultValue="1" />
+                      <span className="text-xs">1</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Department</label>
+                    <select className="w-full p-2 text-sm border border-gray-300 rounded-md">
+                      <option>All Departments</option>
+                      <option>Marketing</option>
+                      <option>Sales</option>
+                      <option>Engineering</option>
+                      <option>HR</option>
+                      <option>Finance</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Time Period</label>
+                    <select className="w-full p-2 text-sm border border-gray-300 rounded-md">
+                      <option>All Time</option>
+                      <option>Last 7 Days</option>
+                      <option>Last 30 Days</option>
+                      <option>Last 90 Days</option>
+                      <option>Custom Range</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Center Panel - Network Visualization */}
+            <div className="flex-1 relative flex flex-col">
+              {/* Visualization Toolbar */}
+              <div className="bg-white border-b border-gray-200 p-2 flex items-center">
+                <div className="flex space-x-1 mr-4">
+                  <button className="p-1 rounded hover:bg-gray-100">
+                    <ZoomIn size={18} />
+                  </button>
+                  <button className="p-1 rounded hover:bg-gray-100">
+                    <ZoomOut size={18} />
+                  </button>
+                  <button className="p-1 rounded hover:bg-gray-100">
+                    <Maximize2 size={18} />
+                  </button>
+                </div>
+                
+                <div className="flex-1">
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      placeholder="Search nodes..."
+                      className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-md"
+                    />
+                    <Search size={16} className="absolute left-2.5 top-2 text-gray-400" />
+                  </div>
+                </div>
+                
+                <div className="ml-4 flex space-x-1">
+                  <button className="p-1 rounded hover:bg-gray-100">
+                    <Settings size={18} />
+                  </button>
+                  <button 
+                    className="p-1 rounded hover:bg-gray-100"
+                    onClick={() => setShowMetricsPanel(!showMetricsPanel)}
+                  >
+                    <BarChart2 size={18} />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Network Visualization Canvas */}
+              <div className="flex-1 bg-gray-50 relative">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <img 
+                    src="/api/placeholder/800/500" 
+                    alt="Network visualization placeholder" 
+                    className="max-w-full max-h-full"
+                  />
+                  
+                  {/* Legend */}
+                  <div className="absolute bottom-4 left-4 bg-white p-3 rounded-md shadow-sm border border-gray-200 text-sm">
+                    <div className="font-medium mb-2">Department</div>
+                    <div className="space-y-1">
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
+                        <span>Marketing</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                        <span>Sales</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-purple-500 mr-2"></div>
+                        <span>Engineering</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500 mr-2"></div>
+                        <span>HR</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
+                        <span>Finance</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Right Panel - Node/Network Details */}
+            {showMetricsPanel && (
+              <div className="w-72 bg-white border-l border-gray-200 flex flex-col">
+                <div className="border-b border-gray-200 p-3">
+                  <h3 className="font-medium">Network Overview</h3>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="mb-5">
+                    <h4 className="text-sm font-medium mb-2 text-gray-700">Network Statistics</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Nodes:</span>
+                        <span>143</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Edges:</span>
+                        <span>682</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Density:</span>
+                        <span>0.067</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Avg. Clustering:</span>
+                        <span>0.312</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Avg. Path Length:</span>
+                        <span>3.24</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Diameter:</span>
+                        <span>7</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-5">
+                    <h4 className="text-sm font-medium mb-2 flex justify-between items-center text-gray-700">
+                      <span>Top Nodes by Centrality</span>
+                      <button className="text-xs text-purple-600">View All</button>
+                    </h4>
+                    
+                    <div className="border border-gray-200 rounded-md overflow-hidden">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Node</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Degree</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Between.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {[
+                            { id: 'E042', degree: 32, betweenness: 0.187 },
+                            { id: 'E115', degree: 28, betweenness: 0.152 },
+                            { id: 'E007', degree: 25, betweenness: 0.143 },
+                            { id: 'E094', degree: 24, betweenness: 0.121 },
+                            { id: 'E023', degree: 22, betweenness: 0.098 }
+                          ].map((node, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedNode(node)}>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs font-medium">{node.id}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs">{node.degree}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs">{node.betweenness}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  
+                  {selectedNode && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 text-gray-700">Node Details</h4>
+                      <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
+                        <div className="flex items-center mb-3">
+                          <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-medium">
+                            {selectedNode.id.substring(1)}
+                          </div>
+                          <div className="ml-2">
+                            <div className="text-sm font-medium">{selectedNode.id}</div>
+                            <div className="text-xs text-gray-500">Marketing Manager</div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Department:</span>
+                            <span>Marketing</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Team:</span>
+                            <span>Digital</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Tenure:</span>
+                            <span>3.5 years</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Performance:</span>
+                            <span>4.2/5.0</span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="text-sm font-medium mb-2">Centrality Metrics</div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Degree:</span>
+                              <span>{selectedNode.degree}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Betweenness:</span>
+                              <span>{selectedNode.betweenness}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Closeness:</span>
+                              <span>0.423</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Eigenvector:</span>
+                              <span>0.614</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Clustering:</span>
+                              <span>0.267</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3">
+                          <button className="text-xs text-purple-600">
+                            View Ego Network
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-3 border-t border-gray-200">
+                  <div className="flex space-x-2">
+                    <button className="flex-1 px-2 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700">
+                      Network Report
+                    </button>
+                    <button className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50">
+                      Export Metrics
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {activeTab === 'metrics' && (
+          <div className="p-6">
+            <div className="flex mb-4 justify-between items-center">
+              <h2 className="text-lg font-medium">Network Metrics</h2>
+              <div className="flex space-x-2">
+                <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md flex items-center hover:bg-gray-50">
+                  <Download size={16} className="mr-1" />
+                  Export
+                </button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3">Node-Level Metrics</h3>
+                <div className="border border-gray-200 rounded-md overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Metric</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Calculate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {[
+                        { name: 'Degree Centrality', desc: 'Number of direct connections' },
+                        { name: 'Betweenness Centrality', desc: 'Frequency on shortest paths' },
+                        { name: 'Closeness Centrality', desc: 'Average shortest distance' },
+                        { name: 'Eigenvector Centrality', desc: 'Connection to influential nodes' },
+                        { name: 'PageRank', desc: 'Recursive influence measure' },
+                        { name: 'Local Clustering', desc: 'Neighbor interconnection' }
+                      ].map((metric, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 text-xs font-medium">{metric.name}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500">{metric.desc}</td>
+                          <td className="px-4 py-2 text-center">
+                            <input type="checkbox" defaultChecked={idx < 4} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <button className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700">
+                    Calculate Selected
+                  </button>
+                </div>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3">Network-Level Metrics</h3>
+                <div className="border border-gray-200 rounded-md overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Metric</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Calculate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {[
+                        { name: 'Density', desc: 'Ratio of actual to possible edges' },
+                        { name: 'Average Path Length', desc: 'Mean shortest distance' },
+                        { name: 'Diameter', desc: 'Maximum shortest path length' },
+                        { name: 'Global Clustering', desc: 'Overall triadic closure' },
+                        { name: 'Assortativity', desc: 'Homophily in connections' },
+                        { name: 'Transitivity', desc: 'Proportion of closed triangles' }
+                      ].map((metric, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 text-xs font-medium">{metric.name}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500">{metric.desc}</td>
+                          <td className="px-4 py-2 text-center">
+                            <input type="checkbox" defaultChecked={idx < 4} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <button className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700">
+                    Calculate Selected
+                  </button>
+                </div>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3">Structural Measures</h3>
+                <div className="border border-gray-200 rounded-md overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Metric</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Calculate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {[
+                        { name: 'Effective Size', desc: 'Non-redundant connections (Burt)' },
+                        { name: 'Constraint', desc: 'Investment in redundant ties' },
+                        { name: 'Efficiency', desc: 'Effective size per contact' },
+                        { name: 'Hierarchy', desc: 'Inequality in constraint' },
+                        { name: 'Structural Equivalence', desc: 'Similar connectivity patterns' },
+                        { name: 'Structural Holes', desc: 'Access to non-redundant information' }
+                      ].map((metric, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 text-xs font-medium">{metric.name}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500">{metric.desc}</td>
+                          <td className="px-4 py-2 text-center">
+                            <input type="checkbox" defaultChecked={idx < 3} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <button className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700">
+                    Calculate Selected
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex justify-between mb-4">
+                <h3 className="font-medium">Organizational Interpretation</h3>
+                <div className="text-sm text-purple-600">
+                  <a href="#" className="flex items-center">
+                    <FileText size={14} className="mr-1" />
+                    OB Theory Reference
+                  </a>
+                </div>
+              </div>
+              
+              <div className="border-t border-gray-200 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Network Insights</h4>
+                    <div className="space-y-4">
+                      <div className="p-3 bg-gray-50 rounded border border-gray-200">
+                        <div className="font-medium text-sm">Information Flow</div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          With an average path length of 3.24, information can spread relatively efficiently through the organization. However, the diameter of 7 indicates some potential communication bottlenecks.
+                        </p>
+                      </div>
+                      
+                      <div className="p-3 bg-gray-50 rounded border border-gray-200">
+                        <div className="font-medium text-sm">Collaboration Structure</div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          The moderate clustering coefficient (0.312) suggests a balance between team cohesion and cross-functional collaboration. This aligns with research suggesting optimal innovation occurs with moderate clustering.
+                        </p>
+                      </div>
+                      
+                      <div className="p-3 bg-gray-50 rounded border border-gray-200">
+                        <div className="font-medium text-sm">Key Brokers</div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Five individuals show high betweenness centrality, indicating they serve as critical bridges between different organizational units. These individuals may be important for knowledge transfer but also represent single points of failure.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Organizational Behavior Implications</h4>
+                    <div className="space-y-4">
+                      <div className="p-3 bg-gray-50 rounded border border-gray-200">
+                        <div className="font-medium text-sm">Leadership & Influence</div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Formal leadership positions align moderately with network centrality (correlation r=0.42), suggesting a mix of formal and informal influence channels operating within the organization.
+                        </p>
+                      </div>
+                      
+                      <div className="p-3 bg-gray-50 rounded border border-gray-200">
+                        <div className="font-medium text-sm">Team Dynamics</div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Teams show varying levels of internal cohesion versus external connections, with Engineering teams showing the highest internal density (0.64) but lowest external connectivity (0.09).
+                        </p>
+                      </div>
+                      
+                      <div className="p-3 bg-gray-50 rounded border border-gray-200">
+                        <div className="font-medium text-sm">Knowledge Management</div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Several structural holes exist between departments, particularly between Finance and Engineering. This may be limiting knowledge exchange and creating organizational silos.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'communities' && (
+          <div className="p-6">
+            <div className="flex mb-4 justify-between items-center">
+              <h2 className="text-lg font-medium">Community Detection</h2>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-600 mr-2">Algorithm:</span>
+                  <select className="p-1.5 text-sm border border-gray-300 rounded-md">
+                    <option>Louvain</option>
+                    <option>Girvan-Newman</option>
+                    <option>Label Propagation</option>
+                    <option>Clique Percolation</option>
+                  </select>
+                </div>
+                <button className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-md flex items-center hover:bg-purple-700">
+                  Detect Communities
+                </button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col">
+                <h3 className="font-medium mb-3">Community Visualization</h3>
+                <div className="flex-1 border border-gray-200 rounded-md p-3 flex items-center justify-center bg-gray-50">
+                  <img 
+                    src="/api/placeholder/600/400" 
+                    alt="Community visualization placeholder" 
+                    className="max-w-full max-h-full"
+                  />
+                </div>
+                <div className="mt-3 flex justify-between items-center">
+                  <div className="text-sm text-gray-500">7 communities detected (Q=0.42)</div>
+                  <div className="flex space-x-2">
+                    <button className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50">
+                      Reset View
+                    </button>
+                    <button className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50">
+                      Export Image
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-medium mb-3">Community Statistics</h3>
+                <div className="border border-gray-200 rounded-md overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Community</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Size</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Density</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Cohesion</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {[
+                        { id: 1, size: 32, density: 0.56, cohesion: 0.78 },
+                        { id: 2, size: 28, density: 0.48, cohesion: 0.65 },
+                        { id: 3, size: 24, density: 0.62, cohesion: 0.81 },
+                        { id: 4, size: 19, density: 0.41, cohesion: 0.59 },
+                        { id: 5, size: 17, density: 0.53, cohesion: 0.72 },
+                        { id: 6, size: 14, density: 0.59, cohesion: 0.77 },
+                        { id: 7, size: 9, density: 0.67, cohesion: 0.84 }
+                      ].map((community, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 cursor-pointer">
+                          <td className="px-3 py-2 whitespace-nowrap text-xs font-medium">
+                            <div className="flex items-center">
+                              <div 
+                                className="w-3 h-3 rounded-full mr-1.5"
+                                style={{ backgroundColor: ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'][idx] }}
+                              ></div>
+                              Community {community.id}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs">{community.size}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs">{community.density}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs">{community.cohesion}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <h3 className="font-medium mt-6 mb-3">Community Composition</h3>
+                <div className="space-y-3">
+                  <div className="text-sm">
+                    <div className="font-medium mb-1">Department Distribution</div>
+                    <div className="border border-gray-200 rounded-md h-24 p-2 flex items-center justify-center bg-gray-50">
+                      <div className="text-xs text-gray-500">Department distribution chart</div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm">
+                    <div className="font-medium mb-1">Role Distribution</div>
+                    <div className="border border-gray-200 rounded-md h-24 p-2 flex items-center justify-center bg-gray-50">
+                      <div className="text-xs text-gray-500">Role distribution chart</div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm">
+                    <div className="font-medium mb-1">Inter-community Connections</div>
+                    <div className="border border-gray-200 rounded-md h-24 p-2 flex items-center justify-center bg-gray-50">
+                      <div className="text-xs text-gray-500">Inter-community connection heatmap</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+              <h3 className="font-medium mb-3">Organizational Interpretation</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="font-medium text-sm mb-2">Community-Department Alignment</div>
+                    <div className="flex items-center text-xs text-gray-600 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-green-500 mr-1"></div>
+                      <span>Strong alignment (NMI = 0.72)</span>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      Communities largely align with formal departmental structures, indicating strong intra-departmental collaboration but potentially limited cross-functional integration.
+                    </p>
+                    <div className="mt-2 text-xs text-gray-600">
+                      <strong>OB Implication:</strong> This suggests a siloed organization with well-established formal boundaries. Consider implementing cross-functional teams or projects to foster innovation.
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="p-3 border border-gray-200 rounded-md">
+                    <div className="font-medium text-sm mb-2">Key Bridge Nodes</div>
+                    <p className="text-xs text-gray-600 mb-2">
+                      Seven individuals serve as critical bridges between communities, connecting otherwise separate groups.
+                    </p>
+                    <div className="border border-gray-200 rounded-md overflow-hidden">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Node</th>
+                            <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Role</th>
+                            <th className="px-3 py-1 text-left text-xs font-medium text-gray-500">Communities</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {[
+                            { id: 'E042', role: 'Product Manager', communities: '1, 3' },
+                            { id: 'E115', role: 'Tech Lead', communities: '3, 5' },
+                            { id: 'E007', role: 'Marketing Director', communities: '1, 2, 4' }
+                          ].map((node, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50">
+                              <td className="px-3 py-1 whitespace-nowrap text-xs font-medium">{node.id}</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">{node.role}</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs">{node.communities}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'prediction' && (
+          <div className="p-6">
+            <div className="flex mb-4 justify-between items-center">
+              <h2 className="text-lg font-medium">Link Prediction</h2>
+              <div className="flex items-center space-x-4">
+                <button className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-md flex items-center hover:bg-purple-700">
+                  Run Prediction
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'dynamics' && (
+          <div className="p-6">
+            <div className="flex mb-4 justify-between items-center">
+              <h2 className="text-lg font-medium">Dynamic Network Analysis</h2>
+              <div className="flex items-center space-x-4">
+                <button className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-md flex items-center hover:bg-purple-700">
+                  Analyze Dynamics
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default SocialNetworkAnalysisModule;

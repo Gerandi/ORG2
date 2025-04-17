@@ -1,0 +1,722 @@
+import React, { useState } from 'react';
+import { Database, Upload, FileText, Table, RefreshCw, AlertCircle, CheckCircle, Trash2, Plus, Search, Filter, Download, Eye } from 'lucide-react';
+
+const DataManagementModule = () => {
+  const [activeTab, setActiveTab] = useState('datasets');
+  const [dataSourceModal, setDataSourceModal] = useState(false);
+
+  return (
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Module Header */}
+      <div className="bg-white border-b border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Database className="text-blue-600 mr-2" size={24} />
+            <h1 className="text-xl font-semibold">Data Management</h1>
+          </div>
+          <div className="flex space-x-2">
+            <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md flex items-center hover:bg-gray-50">
+              <RefreshCw size={16} className="mr-1" />
+              Refresh
+            </button>
+            <button 
+              onClick={() => setDataSourceModal(true)} 
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700"
+            >
+              <Upload size={16} className="mr-1" />
+              Import Data
+            </button>
+          </div>
+        </div>
+        
+        {/* Module Tabs */}
+        <div className="flex space-x-4 mt-6 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('datasets')}
+            className={`pb-2 px-1 ${
+              activeTab === 'datasets'
+                ? 'text-blue-600 border-b-2 border-blue-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Datasets
+          </button>
+          <button
+            onClick={() => setActiveTab('preprocessing')}
+            className={`pb-2 px-1 ${
+              activeTab === 'preprocessing'
+                ? 'text-blue-600 border-b-2 border-blue-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Preprocessing
+          </button>
+          <button
+            onClick={() => setActiveTab('tie-strength')}
+            className={`pb-2 px-1 ${
+              activeTab === 'tie-strength'
+                ? 'text-blue-600 border-b-2 border-blue-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Tie Strength Definition
+          </button>
+          <button
+            onClick={() => setActiveTab('anonymization')}
+            className={`pb-2 px-1 ${
+              activeTab === 'anonymization'
+                ? 'text-blue-600 border-b-2 border-blue-600 font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Anonymization
+          </button>
+        </div>
+      </div>
+      
+      {/* Module Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {activeTab === 'datasets' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-medium">Available Datasets</h2>
+              <div className="flex space-x-2">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search datasets..."
+                    className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <Search size={16} className="absolute left-2.5 top-2 text-gray-400" />
+                </div>
+                <button className="px-2 py-1.5 border border-gray-300 rounded-md">
+                  <Filter size={16} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Size
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Last Modified
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {[
+                      { id: 1, name: 'Employee Communication Data', type: 'CSV', size: '2.4 MB', modified: '2025-04-14', status: 'Processed' },
+                      { id: 2, name: 'Organization Structure', type: 'JSON', size: '1.1 MB', modified: '2025-04-10', status: 'Processed' },
+                      { id: 3, name: 'Employee Performance Metrics', type: 'XLSX', size: '3.8 MB', modified: '2025-04-08', status: 'Processed' },
+                      { id: 4, name: 'Survey Responses Q1 2025', type: 'CSV', size: '5.2 MB', modified: '2025-04-01', status: 'Needs Cleaning' },
+                      { id: 5, name: 'Team Collaboration Network', type: 'JSON', size: '1.7 MB', modified: '2025-03-28', status: 'Processed' }
+                    ].map(dataset => (
+                      <tr key={dataset.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <FileText size={16} className="text-gray-400 mr-2" />
+                            <div className="text-sm font-medium text-gray-900">{dataset.name}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{dataset.type}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{dataset.size}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{dataset.modified}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            dataset.status === 'Processed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {dataset.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                          <div className="flex justify-end space-x-2">
+                            <button className="p-1 text-gray-400 hover:text-gray-500">
+                              <Eye size={16} />
+                            </button>
+                            <button className="p-1 text-gray-400 hover:text-gray-500">
+                              <Download size={16} />
+                            </button>
+                            <button className="p-1 text-gray-400 hover:text-red-500">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'preprocessing' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-medium">Data Preprocessing</h2>
+              <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700">
+                <Plus size={16} className="mr-1" />
+                New Workflow
+              </button>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-md font-medium mb-3">Select Dataset</h3>
+                  <select className="w-full p-2 border border-gray-300 rounded-md">
+                    <option>Employee Communication Data (CSV)</option>
+                    <option>Organization Structure (JSON)</option>
+                    <option>Employee Performance Metrics (XLSX)</option>
+                    <option>Survey Responses Q1 2025 (CSV)</option>
+                    <option>Team Collaboration Network (JSON)</option>
+                  </select>
+                  
+                  <h3 className="text-md font-medium mb-3 mt-6">Data Preview</h3>
+                  <div className="border border-gray-200 rounded-md overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">employee_id</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">recipient_id</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">timestamp</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">channel</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">duration</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {[
+                            { employee_id: 'E001', recipient_id: 'E005', timestamp: '2025-04-14T09:15:23', channel: 'email', duration: ''},
+                            { employee_id: 'E002', recipient_id: 'E001', timestamp: '2025-04-14T10:22:45', channel: 'chat', duration: '5m'},
+                            { employee_id: 'E001', recipient_id: 'E003', timestamp: '2025-04-14T11:05:12', channel: 'meeting', duration: '45m'},
+                            { employee_id: 'E003', recipient_id: 'E005', timestamp: '2025-04-14T13:30:01', channel: 'email', duration: ''},
+                            { employee_id: 'E004', recipient_id: 'E002', timestamp: '2025-04-14T15:47:33', channel: 'call', duration: '12m'}
+                          ].map((row, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 whitespace-nowrap text-xs">{row.employee_id}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs">{row.recipient_id}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs">{row.timestamp}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs">{row.channel}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs">{row.duration}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-md font-medium mb-3">Preprocessing Steps</h3>
+                  
+                  <div className="space-y-4">
+                    {/* Missing Values */}
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">Missing Values</h4>
+                        <div className="flex items-center text-xs text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded">
+                          <AlertCircle size={12} className="mr-1" />
+                          3 columns with missing data
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <label>duration (18% missing)</label>
+                          <select className="text-xs p-1 border border-gray-300 rounded">
+                            <option>Impute with mean</option>
+                            <option>Impute with median</option>
+                            <option>Remove rows</option>
+                            <option>Replace with 0</option>
+                          </select>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-sm">
+                          <label>channel (2% missing)</label>
+                          <select className="text-xs p-1 border border-gray-300 rounded">
+                            <option>Impute with mode</option>
+                            <option>Remove rows</option>
+                            <option>Replace with "unknown"</option>
+                          </select>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-sm">
+                          <label>timestamp (1% missing)</label>
+                          <select className="text-xs p-1 border border-gray-300 rounded">
+                            <option>Remove rows</option>
+                            <option>Impute with previous value</option>
+                            <option>Impute with next value</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Data Type Conversion */}
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">Data Type Conversion</h4>
+                        <div className="flex items-center text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded">
+                          <CheckCircle size={12} className="mr-1" />
+                          All types correct
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <label>employee_id</label>
+                          <div className="text-xs">String</div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-sm">
+                          <label>timestamp</label>
+                          <div className="text-xs">DateTime</div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-sm">
+                          <label>duration</label>
+                          <div className="text-xs">String → Number (minutes)</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Data Normalization */}
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <h4 className="font-medium">Data Normalization</h4>
+                      
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <input type="checkbox" id="normalize-duration" />
+                          <label htmlFor="normalize-duration" className="text-sm">Normalize duration (min-max scaling)</label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <input type="checkbox" id="standardize-duration" />
+                          <label htmlFor="standardize-duration" className="text-sm">Standardize duration (z-score)</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 flex justify-end space-x-3">
+                    <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
+                      Cancel
+                    </button>
+                    <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                      Apply Preprocessing
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'tie-strength' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-medium">Tie Strength Definition</h2>
+              <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700">
+                <Plus size={16} className="mr-1" />
+                New Definition
+              </button>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-md font-medium mb-4">Define Network Tie Strength</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Source Dataset</label>
+                    <select className="w-full p-2 border border-gray-300 rounded-md">
+                      <option>Employee Communication Data (CSV)</option>
+                      <option>Team Collaboration Network (JSON)</option>
+                    </select>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Node Definition</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Source Node Column</label>
+                        <select className="w-full p-2 border border-gray-300 rounded-md text-sm">
+                          <option>employee_id</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Target Node Column</label>
+                        <select className="w-full p-2 border border-gray-300 rounded-md text-sm">
+                          <option>recipient_id</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Network Type</label>
+                    <div className="flex space-x-4">
+                      <div className="flex items-center">
+                        <input type="radio" id="directed" name="network-type" className="mr-1" defaultChecked />
+                        <label htmlFor="directed" className="text-sm">Directed</label>
+                      </div>
+                      <div className="flex items-center">
+                        <input type="radio" id="undirected" name="network-type" className="mr-1" />
+                        <label htmlFor="undirected" className="text-sm">Undirected</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tie Strength Calculation</label>
+                    <select className="w-full p-2 border border-gray-300 rounded-md mb-3">
+                      <option>Frequency-based</option>
+                      <option>Duration-based</option>
+                      <option>Recency-based</option>
+                      <option>Multi-attribute</option>
+                      <option>Custom Formula</option>
+                    </select>
+                    
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                      <div className="text-sm font-medium mb-2">Frequency-based Tie Strength</div>
+                      <p className="text-xs text-gray-600 mb-3">Count the number of interactions between nodes within the specified time period.</p>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Time Period</label>
+                          <select className="w-full p-1.5 border border-gray-300 rounded-md text-sm">
+                            <option>All data</option>
+                            <option>Last 30 days</option>
+                            <option>Last 90 days</option>
+                            <option>Custom range</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Communication Channels</label>
+                          <div className="flex flex-wrap gap-2">
+                            <div className="flex items-center">
+                              <input type="checkbox" id="email" defaultChecked className="mr-1" />
+                              <label htmlFor="email" className="text-xs">Email</label>
+                            </div>
+                            <div className="flex items-center">
+                              <input type="checkbox" id="chat" defaultChecked className="mr-1" />
+                              <label htmlFor="chat" className="text-xs">Chat</label>
+                            </div>
+                            <div className="flex items-center">
+                              <input type="checkbox" id="meeting" defaultChecked className="mr-1" />
+                              <label htmlFor="meeting" className="text-xs">Meeting</label>
+                            </div>
+                            <div className="flex items-center">
+                              <input type="checkbox" id="call" defaultChecked className="mr-1" />
+                              <label htmlFor="call" className="text-xs">Call</label>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Normalization</label>
+                          <select className="w-full p-1.5 border border-gray-300 rounded-md text-sm">
+                            <option>None (raw count)</option>
+                            <option>Min-Max (0-1 scale)</option>
+                            <option>Z-score</option>
+                            <option>Log transformation</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end space-x-3">
+                    <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
+                      Preview Network
+                    </button>
+                    <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                      Create Network
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'anonymization' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-medium">Data Anonymization</h2>
+              <div className="flex items-center text-sm text-blue-600">
+                <AlertCircle size={16} className="mr-1" />
+                GDPR Compliance Tools
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-md font-medium mb-3">Select Dataset to Anonymize</h3>
+                  <select className="w-full p-2 border border-gray-300 rounded-md mb-4">
+                    <option>Employee Communication Data (CSV)</option>
+                    <option>Organization Structure (JSON)</option>
+                    <option>Employee Performance Metrics (XLSX)</option>
+                    <option>Survey Responses Q1 2025 (CSV)</option>
+                  </select>
+                  
+                  <h3 className="text-md font-medium mb-3">Sensitive Data Fields</h3>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
+                      <div className="flex items-center">
+                        <input type="checkbox" id="emp_id" defaultChecked className="mr-2" />
+                        <label htmlFor="emp_id" className="text-sm">employee_id</label>
+                      </div>
+                      <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">PII</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
+                      <div className="flex items-center">
+                        <input type="checkbox" id="emp_name" defaultChecked className="mr-2" />
+                        <label htmlFor="emp_name" className="text-sm">employee_name</label>
+                      </div>
+                      <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">PII</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
+                      <div className="flex items-center">
+                        <input type="checkbox" id="emp_email" defaultChecked className="mr-2" />
+                        <label htmlFor="emp_email" className="text-sm">email_address</label>
+                      </div>
+                      <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">PII</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
+                      <div className="flex items-center">
+                        <input type="checkbox" id="department" className="mr-2" />
+                        <label htmlFor="department" className="text-sm">department</label>
+                      </div>
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">Quasi-identifier</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-2 border border-gray-200 rounded-md bg-gray-50">
+                      <div className="flex items-center">
+                        <input type="checkbox" id="tenure" className="mr-2" />
+                        <label htmlFor="tenure" className="text-sm">tenure</label>
+                      </div>
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">Quasi-identifier</span>
+                    </div>
+                  </div>
+                  
+                  <h3 className="text-md font-medium mb-3">Consent Status</h3>
+                  <div className="p-3 border border-gray-200 rounded-md mb-4">
+                    <div className="flex items-center mb-2">
+                      <div className="w-4 h-4 rounded-full bg-green-500 mr-2"></div>
+                      <div className="text-sm">Consented: 85%</div>
+                    </div>
+                    <div className="flex items-center mb-2">
+                      <div className="w-4 h-4 rounded-full bg-red-500 mr-2"></div>
+                      <div className="text-sm">Not Consented: 5%</div>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 rounded-full bg-gray-300 mr-2"></div>
+                      <div className="text-sm">Unknown: 10%</div>
+                    </div>
+                    
+                    <div className="mt-3">
+                      <div className="flex items-center space-x-2">
+                        <input type="checkbox" id="exclude-non-consent" defaultChecked />
+                        <label htmlFor="exclude-non-consent" className="text-sm">Exclude non-consented data</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-md font-medium mb-3">Anonymization Techniques</h3>
+                  
+                  <div className="space-y-4">
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="flex items-center">
+                        <input type="radio" id="pseudonymization" name="anon-technique" defaultChecked className="mr-2" />
+                        <label htmlFor="pseudonymization" className="font-medium">Pseudonymization</label>
+                      </div>
+                      <p className="text-xs text-gray-600 ml-5 mt-1">
+                        Replace identifiers with artificial identifiers (pseudonyms).
+                      </p>
+                      
+                      <div className="ml-5 mt-3 space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <input type="checkbox" id="reversible" defaultChecked />
+                          <label htmlFor="reversible" className="text-sm">Reversible (keep mapping table)</label>
+                        </div>
+                        
+                        <div className="text-sm">
+                          <div className="mb-1">ID Format</div>
+                          <select className="w-full p-1.5 border border-gray-300 rounded-md text-sm">
+                            <option>Random UUID</option>
+                            <option>Sequential IDs (P001, P002...)</option>
+                            <option>Role-based (EMP001, MGR001...)</option>
+                            <option>Custom pattern</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="flex items-center">
+                        <input type="radio" id="aggregation" name="anon-technique" className="mr-2" />
+                        <label htmlFor="aggregation" className="font-medium">Aggregation</label>
+                      </div>
+                      <p className="text-xs text-gray-600 ml-5 mt-1">
+                        Replace individual values with aggregate statistics (e.g., averages, ranges).
+                      </p>
+                      
+                      <div className="ml-5 mt-3 space-y-2">
+                        <div className="text-sm">
+                          <div className="mb-1">Aggregation Level</div>
+                          <select className="w-full p-1.5 border border-gray-300 rounded-md text-sm">
+                            <option>Department level</option>
+                            <option>Team level</option>
+                            <option>Role level</option>
+                            <option>Custom grouping</option>
+                          </select>
+                        </div>
+                        
+                        <div className="text-sm">
+                          <div className="mb-1">Minimum Group Size</div>
+                          <input 
+                            type="number" 
+                            className="w-full p-1.5 border border-gray-300 rounded-md text-sm"
+                            placeholder="5"
+                          />
+                          <div className="text-xs text-gray-500 mt-1">
+                            Groups with fewer members will be merged.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 border border-gray-200 rounded-md">
+                      <div className="flex items-center">
+                        <input type="radio" id="k-anonymity" name="anon-technique" className="mr-2" />
+                        <label htmlFor="k-anonymity" className="font-medium">K-Anonymity</label>
+                      </div>
+                      <p className="text-xs text-gray-600 ml-5 mt-1">
+                        Ensure that each record cannot be distinguished from at least k-1 other records.
+                      </p>
+                      
+                      <div className="ml-5 mt-3 space-y-2">
+                        <div className="text-sm">
+                          <div className="mb-1">K Value</div>
+                          <input 
+                            type="number" 
+                            className="w-full p-1.5 border border-gray-300 rounded-md text-sm"
+                            placeholder="5"
+                          />
+                          <div className="text-xs text-gray-500 mt-1">
+                            Higher values provide stronger anonymity but more information loss.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 flex justify-end space-x-3">
+                    <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
+                      Preview Result
+                    </button>
+                    <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                      Apply Anonymization
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Import Data Modal */}
+      {dataSourceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-2xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">Import Data</h3>
+              <button onClick={() => setDataSourceModal(false)} className="text-gray-400 hover:text-gray-500">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex border-b border-gray-200">
+                <button className="py-2 px-4 border-b-2 border-blue-500 text-blue-600 font-medium">
+                  File Upload
+                </button>
+                <button className="py-2 px-4 text-gray-500 hover:text-gray-700">
+                  External Source
+                </button>
+                <button className="py-2 px-4 text-gray-500 hover:text-gray-700">
+                  Manual Entry
+                </button>
+              </div>
+            </div>
+            
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 mb-6">
+              <div className="text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">Drag files here</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  Supported formats: CSV, JSON, XLSX (max. 50MB)
+                </p>
+                <div className="mt-4">
+                  <button className="px-3 py-1.5 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                    Browse Files
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="border-t border-gray-200 pt-4 flex justify-end space-x-3">
+              <button 
+                onClick={() => setDataSourceModal(false)}
+                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                Import Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default DataManagementModule;
