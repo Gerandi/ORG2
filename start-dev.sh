@@ -13,6 +13,11 @@ echo "Starting backend server..."
 cd backend
 source venv/bin/activate
 pip install -r requirements.txt
+# Load environment variables from .env file if it exists
+if [ -f .env ]; then
+  echo "Loading environment variables from .env file..."
+  export $(grep -v '^#' .env | xargs)
+fi
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 cd ..

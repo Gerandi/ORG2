@@ -54,7 +54,7 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
     
     async def on_after_login(self, user: User, request: Optional[Request] = None, response: Optional[Response] = None):
         """Update last login date."""
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.utcnow(timezone.utc)
         await self.user_db.update(user, {"last_login": user.last_login})
     
     async def validate_password(self, password: str, user: User) -> None:
@@ -113,7 +113,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         Encoded JWT token
     """
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    expire = datetime.utcnow(timezone.utc) + (
         expires_delta if expires_delta else timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
@@ -125,7 +125,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         "exp": expire, 
         "type": "access",
         "jti": jti,
-        "iat": datetime.utcnow()  # Issued at time
+        "iat": datetime.utcnow(timezone.utc)  # Issued at time
     })
     
     encoded_jwt = jwt.encode(to_encode, SECRET, algorithm=ALGORITHM)
@@ -151,7 +151,7 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
         Encoded JWT refresh token
     """
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    expire = datetime.utcnow(timezone.utc) + (
         expires_delta if expires_delta else timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
     )
     
@@ -163,7 +163,7 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
         "exp": expire, 
         "type": "refresh",
         "jti": jti,
-        "iat": datetime.utcnow()  # Issued at time
+        "iat": datetime.utcnow(timezone.utc)  # Issued at time
     })
     
     encoded_jwt = jwt.encode(to_encode, SECRET, algorithm=ALGORITHM)

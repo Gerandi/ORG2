@@ -1,15 +1,22 @@
 import asyncio
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
+from dotenv import load_dotenv
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from app.core.database import async_session_maker
-from app.models.models import User, Project, Dataset, Network, ABMModel, ABMSimulation, MLModel, PreparedData
+from app.models.models import (
+    User, Project, Dataset, Network, ABMModel, ABMSimulation, MLModel, PreparedData,
+    AgentAttributeDefinition, AgentStateVariableDefinition,
+    AgentBehaviorDefinition, EnvironmentVariableDefinition
+)
 
+# Load environment variables from .env file
+load_dotenv()
 
 async def seed_admin_user() -> User:
     """Create admin user if it doesn't exist."""
@@ -34,8 +41,8 @@ async def seed_admin_user() -> User:
             is_verified=True,
             first_name="Admin",
             last_name="User",
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
         )
         
         session.add(admin)
@@ -87,8 +94,8 @@ async def seed_projects(user: User) -> List[Project]:
                 type=data["type"],
                 status=data["status"],
                 user_id=user.id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             session.add(project)
             projects.append(project)
@@ -156,8 +163,8 @@ async def seed_datasets(user: User, projects: List[Project]) -> List[Dataset]:
                 status=data["status"],
                 user_id=user.id,
                 project_id=projects[data["project_index"]].id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
                 row_count=data["row_count"],
                 columns=data["columns"]
             )
@@ -241,8 +248,8 @@ async def seed_networks(user: User, datasets: List[Dataset], projects: List[Proj
                 dataset_id=datasets[data["dataset_index"]].id if data.get("dataset_index") is not None else None,
                 project_id=projects[data["project_index"]].id,
                 user_id=user.id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
                 metrics=data["metrics"],
                 attributes=data["attributes"]
             )
@@ -276,14 +283,7 @@ async def seed_abm_models(user: User, projects: List[Project], networks: List[Ne
                 "simulation_type": "social_influence",
                 "status": "created",
                 "project_index": 2,  # Index in projects list
-                "network_index": 0,  # Index in networks list (optional)
-                "attributes": {
-                    "num_agents": 150,
-                    "time_steps": 100,
-                    "space_type": "network",
-                    "influence_threshold": 0.3,
-                    "homophily_factor": 0.7
-                }
+                "network_index": 0  # Index in networks list (optional)
             },
             {
                 "name": "Innovation Diffusion Model",
@@ -291,15 +291,7 @@ async def seed_abm_models(user: User, projects: List[Project], networks: List[Ne
                 "simulation_type": "diffusion_of_innovations",
                 "status": "configured",
                 "project_index": 2,
-                "network_index": 1,
-                "attributes": {
-                    "num_agents": 12,
-                    "time_steps": 50,
-                    "space_type": "network",
-                    "early_adopter_threshold": 0.2,
-                    "majority_threshold": 0.5,
-                    "laggard_threshold": 0.8
-                }
+                "network_index": 1
             }
         ]
         
@@ -313,11 +305,32 @@ async def seed_abm_models(user: User, projects: List[Project], networks: List[Ne
                 project_id=projects[data["project_index"]].id,
                 network_id=networks[data["network_index"]].id if data.get("network_index") is not None else None,
                 user_id=user.id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-                attributes=data["attributes"]
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             session.add(model)
+            
+            # Add sample definitions for the first seeded model (Social Influence)
+            if data["name"] == "Social Influence Model":
+                # Sample Agent Attributes
+                model.agent_attributes.append(AgentAttributeDefinition(name="influenceability", type="number", default_value_json=0.5))
+                # Sample State Variables
+                model.agent_state_variables.append(AgentStateVariableDefinition(name="opinion", type="number", default_value_json=0.5, min_value=0, max_value=1))
+                # Sample Behaviors
+                model.agent_behaviors.append(AgentBehaviorDefinition(name="update_opinion", description="Update opinion based on neighbors"))
+                # Sample Environment Variables
+                model.environment_variables.append(EnvironmentVariableDefinition(name="influence_strength", type="number", default_value_json=0.1))
+                model.environment_variables.append(EnvironmentVariableDefinition(name="conformity_bias", type="number", default_value_json=0.3))
+
+            # Add sample definitions for the second seeded model (Innovation Diffusion)
+            elif data["name"] == "Innovation Diffusion Model":
+                model.agent_attributes.append(AgentAttributeDefinition(name="innovativeness", type="number", default_value_json=0.5))
+                model.agent_state_variables.append(AgentStateVariableDefinition(name="adoption_status", type="boolean", default_value_json=False))
+                model.agent_state_variables.append(AgentStateVariableDefinition(name="adoption_threshold", type="number", default_value_json=0.3))
+                model.agent_behaviors.append(AgentBehaviorDefinition(name="evaluate_adoption", description="Decide whether to adopt"))
+                model.environment_variables.append(EnvironmentVariableDefinition(name="initial_adopters", type="number", default_value_json=0.05))
+                model.environment_variables.append(EnvironmentVariableDefinition(name="influence_decay", type="number", default_value_json=0.1))
+                
             models.append(model)
         
         await session.commit()
@@ -410,14 +423,13 @@ async def seed_ml_models(user: User, projects: List[Project], datasets: List[Dat
                 target_variable=data["target_variable"],
                 project_id=projects[data["project_index"]].id,
                 user_id=user.id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
                 hyperparameters=data["hyperparameters"],
                 metrics=data["metrics"],
                 feature_importances=data["feature_importances"]
             )
             session.add(model)
-            ml_models.append(model)
             
             # Associate datasets with ML model
             for idx in data["dataset_indices"]:

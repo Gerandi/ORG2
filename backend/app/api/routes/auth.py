@@ -85,7 +85,7 @@ async def login_access_refresh_token(form_data: OAuth2PasswordRequestForm = Depe
         refresh_token = create_refresh_token(data={"sub": str(user.id)})
         
         # Update last login date
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.utcnow(timezone.utc)
         await user_manager.user_db.update(user)
         
         return {

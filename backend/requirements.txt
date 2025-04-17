@@ -20,3 +20,5 @@ fastapi-pagination
 shap
 community
 python-louvain
+asyncpg 
+psycopg2-binary 
