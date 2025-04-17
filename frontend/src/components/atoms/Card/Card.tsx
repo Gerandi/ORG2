@@ -13,7 +13,7 @@ const Card: React.FC<CardProps> = ({
   variant = 'default',
   padding = 'medium',
 }) => {
-  const baseClasses = 'rounded-lg';
+  const baseClasses = 'rounded-lg transition-all duration-150 ease-in-out';
   
   const variantClasses = {
     default: 'bg-white border border-gray-200',

@@ -17,7 +17,7 @@ const Input: React.FC<InputProps> = ({
   rightIcon,
   ...props
 }) => {
-  const baseClasses = 'px-3 py-2 bg-white border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors';
+  const baseClasses = 'px-3 py-2 bg-white border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-150 ease-in-out';
   const widthClass = fullWidth ? 'w-full' : '';
   const errorClass = error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300';
   const iconPaddingLeft = leftIcon ? 'pl-10' : '';

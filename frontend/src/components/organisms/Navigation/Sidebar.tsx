@@ -76,7 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
         key={item.path}
         to={item.path}
         className={({ isActive }) => `
-          flex items-center w-full px-4 py-2 text-left
+          flex items-center w-full px-4 py-2 text-left transition-colors duration-150 ease-in-out
           ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-700 text-white'}
         `}
       >
