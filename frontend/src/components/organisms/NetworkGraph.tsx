@@ -63,7 +63,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({
 
   // Main visualization effect
   useEffect(() => {
-    if (!svgRef.current || nodes.length === 0) return;
+    if (!svgRef.current || !nodes || nodes.length === 0) return;
 
     // Clear previous visualization
     d3.select(svgRef.current).selectAll('*').remove();
@@ -122,8 +122,16 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({
 
     // Process data for D3 force layout
     const nodeMap = new Map<string, SimulationNode>();
+    
+    // Map nodes and initialize positions if they don't exist
     nodes.forEach(node => {
-      nodeMap.set(node.id, { ...node });
+      const simNode: SimulationNode = { 
+        ...node,
+        // If the node has position data from the backend, use it
+        x: node.attributes?.position?.x || Math.random() * dimensions.width,
+        y: node.attributes?.position?.y || Math.random() * dimensions.height
+      };
+      nodeMap.set(node.id, simNode);
     });
 
     // Process the edges to use the actual node objects

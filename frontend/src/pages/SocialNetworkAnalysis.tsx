@@ -376,7 +376,7 @@ const SocialNetworkAnalysis: React.FC = () => {
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
                     </div>
-                  ) : !networkData ? (
+                  ) : !selectedNetwork ? (
                     <div className="absolute inset-0 flex items-center justify-center flex-col">
                       <Network className="h-16 w-16 text-gray-300 mb-4" />
                       <Text variant="caption" className="text-gray-400">
@@ -396,6 +396,28 @@ const SocialNetworkAnalysis: React.FC = () => {
                         </Button>
                       )}
                     </div>
+                  ) : !networkData ? (
+                    <div className="absolute inset-0 flex items-center justify-center flex-col">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+                      <Text variant="caption" className="text-gray-500">
+                        Loading network data...
+                      </Text>
+                    </div>
+                  ) : networkData.nodes.length === 0 ? (
+                    <div className="absolute inset-0 flex items-center justify-center flex-col">
+                      <Network className="h-16 w-16 text-gray-300 mb-4" />
+                      <Text variant="caption" className="text-gray-400">
+                        This network contains no nodes or edges.
+                      </Text>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={handleRefresh}
+                      >
+                        <RefreshCw size={16} className="mr-1" />
+                        Refresh
+                      </Button>
+                    </div>
                   ) : (
                     // Render the D3.js network graph
                     <NetworkGraph
@@ -411,7 +433,7 @@ const SocialNetworkAnalysis: React.FC = () => {
                   )}
                   
                   {/* Legend */}
-                  {networkData && colorCategories.size > 0 && (
+                  {networkData && networkData.nodes.length > 0 && colorCategories.size > 0 && (
                     <div className="absolute bottom-4 left-4">
                       <NetworkLegend 
                         visualizationOptions={visualizationOptions}
