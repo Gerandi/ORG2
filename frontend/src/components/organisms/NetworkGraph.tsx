@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import { Node, Edge, VisualizationOptions } from '../../types/network';
+import { useNetworkContext } from '../../shared/contexts';
 
 // Define a simulation node type that extends the basic Node type with position data
 interface SimulationNode extends Node, d3.SimulationNodeDatum {
@@ -49,6 +50,9 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({
   const [dimensions, setDimensions] = useState({ width, height });
   const [hoveredNode, setHoveredNode] = useState<Node | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  
+  // Access communities from NetworkContext
+  const { communities } = useNetworkContext();
 
   // State for zoom
   const [currentTransform, setCurrentTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
@@ -178,8 +182,14 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({
     const uniqueColorCategories = new Set<string>();
     nodes.forEach(node => {
       if (visualizationOptions.node_color.by === 'community') {
-        // Community would typically be added by the community detection algorithm
-        uniqueColorCategories.add(node.attributes['community'] || 'unknown');
+        // Use communities data from context if available
+        if (communities && communities.node_community) {
+          const communityId = communities.node_community[node.id];
+          uniqueColorCategories.add(communityId?.toString() || 'unknown');
+        } else {
+          // Fall back to any community data in node attributes
+          uniqueColorCategories.add(node.attributes['community'] || 'unknown');
+        }
       } else if (visualizationOptions.node_color.by === 'attribute' && visualizationOptions.node_color.attribute) {
         uniqueColorCategories.add(node.attributes[visualizationOptions.node_color.attribute] || 'unknown');
       } else if (visualizationOptions.node_color.by === 'centrality') {
@@ -240,7 +250,12 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({
         } else {
           let colorCategory = 'unknown';
           if (visualizationOptions.node_color.by === 'community') {
-            colorCategory = node.attributes['community'] || 'unknown';
+            // Use communities data from the context if available
+            if (communities && communities.node_community) {
+              colorCategory = communities.node_community[node.id]?.toString() || 'unknown';
+            } else {
+              colorCategory = node.attributes['community'] || 'unknown';
+            }
           } else if (visualizationOptions.node_color.by === 'attribute' && visualizationOptions.node_color.attribute) {
             colorCategory = node.attributes[visualizationOptions.node_color.attribute] || 'unknown';
           } else {

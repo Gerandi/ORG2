@@ -1,9 +1,10 @@
 import React from 'react';
-import { BarChart2, User, Network } from 'lucide-react';
+import { BarChart2, User, Network, RefreshCw } from 'lucide-react';
 import { Node, NetworkModel, NetworkMetrics, Communities } from '../../types/network';
 import { Heading, Text } from '../atoms/Typography';
 import Card from '../atoms/Card';
 import Button from '../atoms/Button';
+import { useNetworkContext } from '../../shared/contexts';
 
 interface NetworkMetricsPanelProps {
   network: NetworkModel | null;
@@ -24,6 +25,9 @@ const NetworkMetricsPanel: React.FC<NetworkMetricsPanelProps> = ({
   onExportMetrics,
   isLoading = false
 }) => {
+  // Access the metrics calculation function from context
+  const { calculateNetworkMetrics } = useNetworkContext();
+
   // Helper function to format metric values
   const formatMetric = (value: number | undefined): string => {
     if (value === undefined) return 'N/A';
@@ -37,7 +41,13 @@ const NetworkMetricsPanel: React.FC<NetworkMetricsPanelProps> = ({
   const getNodeCommunity = (): string | null => {
     if (!selectedNode || !communities) return null;
     
-    const communityEntries = Object.entries(communities.communities);
+    // Check if communities has node_community mapping
+    if (communities.node_community && communities.node_community[selectedNode.id] !== undefined) {
+      return communities.node_community[selectedNode.id].toString();
+    }
+    
+    // Otherwise search through communities the old way
+    const communityEntries = Object.entries(communities.communities || {});
     for (const [communityId, community] of communityEntries) {
       if (community.nodes.includes(selectedNode.id)) {
         return communityId;
@@ -59,12 +69,28 @@ const NetworkMetricsPanel: React.FC<NetworkMetricsPanelProps> = ({
       .slice(0, count);
   };
 
+  const handleRecalculateMetrics = () => {
+    if (network) {
+      calculateNetworkMetrics(network.id, ['all']);
+    }
+  };
+
   const topDegreeNodes = getTopNodesByMetric('degree');
   
   return (
     <div className="network-metrics-panel h-full flex flex-col">
-      <div className="border-b border-gray-200 p-3">
+      <div className="border-b border-gray-200 p-3 flex justify-between items-center">
         <Heading level={4}>Network Overview</Heading>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="flex items-center"
+          onClick={handleRecalculateMetrics}
+          disabled={isLoading || !network}
+        >
+          <RefreshCw size={14} className="mr-1" />
+          Recalculate
+        </Button>
       </div>
       
       <div className="flex-1 overflow-y-auto p-4">

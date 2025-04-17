@@ -9,6 +9,7 @@ interface NetworkContextProps {
   networkData: NetworkData | null;
   networkMetrics: NetworkMetrics | null;
   communities: Communities | null;
+  predictedLinks: Array<{source: string, target: string, score: number}> | null;
   visualizationOptions: VisualizationOptions;
   isLoading: boolean;
   error: string | null;
@@ -22,6 +23,7 @@ interface NetworkContextProps {
   calculateNetworkMetrics: (id: number, metrics: string[]) => Promise<void>;
   fetchCommunities: (id: number) => Promise<void>;
   detectCommunities: (id: number, algorithm: string) => Promise<void>;
+  predictLinks: (id: number, method: string, k: number) => Promise<void>;
   updateVisualizationOptions: (options: Partial<VisualizationOptions>) => void;
 }
 
@@ -58,6 +60,7 @@ export const NetworkProvider: React.FC<{children: React.ReactNode}> = ({ childre
   const [networkData, setNetworkData] = useState<NetworkData | null>(null);
   const [networkMetrics, setNetworkMetrics] = useState<NetworkMetrics | null>(null);
   const [communities, setCommunities] = useState<Communities | null>(null);
+  const [predictedLinks, setPredictedLinks] = useState<Array<{source: string, target: string, score: number}> | null>(null);
   const [visualizationOptions, setVisualizationOptions] = useState<VisualizationOptions>(defaultVisualizationOptions);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -228,6 +231,21 @@ export const NetworkProvider: React.FC<{children: React.ReactNode}> = ({ childre
     }
   }, []);
   
+  const predictLinks = useCallback(async (id: number, method: string, k: number): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const results = await networkService.predictLinks(id, method, k);
+      setPredictedLinks(results);
+    } catch (err) {
+      setError('Failed to predict links');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+  
   const updateVisualizationOptions = useCallback((options: Partial<VisualizationOptions>): void => {
     setVisualizationOptions(prevOptions => ({
       ...prevOptions,
@@ -257,6 +275,7 @@ export const NetworkProvider: React.FC<{children: React.ReactNode}> = ({ childre
         networkData,
         networkMetrics,
         communities,
+        predictedLinks,
         visualizationOptions,
         isLoading,
         error,
@@ -270,6 +289,7 @@ export const NetworkProvider: React.FC<{children: React.ReactNode}> = ({ childre
         calculateNetworkMetrics,
         fetchCommunities,
         detectCommunities,
+        predictLinks,
         updateVisualizationOptions
       }}
     >

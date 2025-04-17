@@ -45,7 +45,10 @@ const SocialNetworkAnalysis: React.FC = () => {
     fetchNetworkMetrics,
     calculateNetworkMetrics,
     fetchCommunities,
-    updateVisualizationOptions
+    updateVisualizationOptions,
+    detectCommunities,
+    predictLinks,
+    predictedLinks
   } = useNetworkContext();
 
   // Load networks on mount and when the selected project changes
@@ -466,28 +469,292 @@ const SocialNetworkAnalysis: React.FC = () => {
           {/* Other tabs content */}
           {activeTab === 'metrics' && (
             <Card>
-              <Heading level={3}>Network Metrics</Heading>
-              <Text variant="caption" className="mt-2">
-                Network metrics calculation and analysis tools will be implemented here.
-              </Text>
+              <Heading level={3} className="mb-4">Network Metrics</Heading>
+              
+              {!selectedNetwork ? (
+                <Text variant="caption" className="mt-2">
+                  Please select a network to view and calculate metrics
+                </Text>
+              ) : (
+                <>
+                  {isLoading ? (
+                    <div className="flex justify-center items-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                    </div>
+                  ) : (
+                    <NetworkMetricsPanel 
+                      network={selectedNetwork}
+                      metrics={networkMetrics}
+                      communities={communities}
+                      selectedNode={selectedNode}
+                      onGenerateReport={handleGenerateReport}
+                      onExportMetrics={handleExportMetrics}
+                      isLoading={isLoading}
+                    />
+                  )}
+                </>
+              )}
             </Card>
           )}
           
           {activeTab === 'communities' && (
-            <Card>
-              <Heading level={3}>Community Detection</Heading>
-              <Text variant="caption" className="mt-2">
-                Community detection algorithms and visualization will be implemented here.
-              </Text>
+            <Card className="p-6">
+              <Heading level={3} className="mb-4">Community Detection</Heading>
+              
+              {!selectedNetwork ? (
+                <Text variant="caption" className="mt-2">
+                  Please select a network to detect communities
+                </Text>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex flex-wrap gap-4 items-end">
+                    <div className="w-64">
+                      <label htmlFor="algorithm-select" className="block text-sm font-medium text-gray-700 mb-1">
+                        Algorithm
+                      </label>
+                      <select
+                        id="algorithm-select"
+                        className="w-full p-2 text-sm border border-gray-300 rounded-md"
+                        value={communities?.algorithm || 'louvain'}
+                        onChange={(e) => {}}
+                        disabled={isLoading}
+                      >
+                        <option value="louvain">Louvain</option>
+                        <option value="girvan_newman">Girvan-Newman</option>
+                        <option value="label_propagation">Label Propagation</option>
+                      </select>
+                    </div>
+                    <Button
+                      variant="primary"
+                      style={{ backgroundColor: '#9333ea', borderColor: '#9333ea' }}
+                      onClick={() => {
+                        if (selectedNetwork) {
+                          const algorithmSelect = document.getElementById('algorithm-select') as HTMLSelectElement;
+                          const algorithm = algorithmSelect.value;
+                          detectCommunities(selectedNetwork.id, algorithm);
+                        }
+                      }}
+                      disabled={isLoading}
+                      loading={isLoading}
+                    >
+                      Detect Communities
+                    </Button>
+                  </div>
+                  
+                  {isLoading ? (
+                    <div className="flex justify-center items-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                    </div>
+                  ) : communities ? (
+                    <div className="space-y-6">
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Number of Communities</p>
+                            <p className="text-xl font-semibold">{communities.num_communities}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Modularity Score</p>
+                            <p className="text-xl font-semibold">{communities.modularity.toFixed(4)}</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Heading level={4} className="mb-3">Community Details</Heading>
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Community
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Size
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Density
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Cohesion
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {Object.entries(communities.communities || {}).map(([id, community]) => (
+                                <tr key={id} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="flex items-center">
+                                      <div className="h-4 w-4 rounded-full" 
+                                           style={{ backgroundColor: d3.schemeCategory10[parseInt(id) % 10] }}></div>
+                                      <div className="ml-2 text-sm font-medium text-gray-900">
+                                        Community {id}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {community.size}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {community.density.toFixed(3)}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {community.cohesion.toFixed(3)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-center mt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            if (visualizationOptions.node_color.by !== 'community') {
+                              updateVisualizationOptions({
+                                node_color: {
+                                  ...visualizationOptions.node_color,
+                                  by: 'community'
+                                }
+                              });
+                            }
+                            setActiveTab('visualization');
+                          }}
+                        >
+                          View Communities in Visualization
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-lg p-8 text-center">
+                      <Network size={32} className="mx-auto mb-4 text-gray-400" />
+                      <Text>No community detection results available. Run the algorithm to detect communities.</Text>
+                    </div>
+                  )}
+                </div>
+              )}
             </Card>
           )}
           
           {activeTab === 'prediction' && (
-            <Card>
-              <Heading level={3}>Link Prediction</Heading>
-              <Text variant="caption" className="mt-2">
-                Link prediction models and analysis will be implemented here.
-              </Text>
+            <Card className="p-6">
+              <Heading level={3} className="mb-4">Link Prediction</Heading>
+              
+              {!selectedNetwork ? (
+                <Text variant="caption" className="mt-2">
+                  Please select a network to predict potential links
+                </Text>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex flex-wrap gap-4 items-end">
+                    <div className="w-64">
+                      <label htmlFor="prediction-method" className="block text-sm font-medium text-gray-700 mb-1">
+                        Prediction Method
+                      </label>
+                      <select
+                        id="prediction-method"
+                        className="w-full p-2 text-sm border border-gray-300 rounded-md"
+                        defaultValue="common_neighbors"
+                        disabled={isLoading}
+                      >
+                        <option value="common_neighbors">Common Neighbors</option>
+                        <option value="jaccard">Jaccard Coefficient</option>
+                        <option value="adamic_adar">Adamic-Adar Index</option>
+                        <option value="preferential_attachment">Preferential Attachment</option>
+                      </select>
+                    </div>
+                    <div className="w-36">
+                      <label htmlFor="prediction-k" className="block text-sm font-medium text-gray-700 mb-1">
+                        Number of Predictions (k)
+                      </label>
+                      <input
+                        id="prediction-k"
+                        type="number"
+                        min="1"
+                        max="50"
+                        defaultValue="10"
+                        className="w-full p-2 text-sm border border-gray-300 rounded-md"
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <Button
+                      variant="primary"
+                      style={{ backgroundColor: '#9333ea', borderColor: '#9333ea' }}
+                      onClick={() => {
+                        if (selectedNetwork) {
+                          const methodSelect = document.getElementById('prediction-method') as HTMLSelectElement;
+                          const kInput = document.getElementById('prediction-k') as HTMLInputElement;
+                          
+                          const method = methodSelect.value;
+                          const k = parseInt(kInput.value);
+                          
+                          if (!isNaN(k) && k > 0) {
+                            predictLinks(selectedNetwork.id, method, k);
+                          }
+                        }
+                      }}
+                      disabled={isLoading}
+                      loading={isLoading}
+                    >
+                      Predict Links
+                    </Button>
+                  </div>
+                  
+                  {isLoading ? (
+                    <div className="flex justify-center items-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                    </div>
+                  ) : predictedLinks ? (
+                    <div>
+                      <Heading level={4} className="mb-3">Predicted Links</Heading>
+                      <div className="border rounded-lg overflow-hidden">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Source Node
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Target Node
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Score
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {predictedLinks.map((link, index) => (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                  {link.source}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {link.target}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {link.score.toFixed(4)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      <Text variant="caption" className="mt-4 text-gray-500 block">
+                        These are the most likely links that could form in the network based on the chosen prediction method.
+                        Higher scores indicate stronger likelihood of connection.
+                      </Text>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-lg p-8 text-center">
+                      <Network size={32} className="mx-auto mb-4 text-gray-400" />
+                      <Text>No link predictions available. Run the algorithm to predict potential links in the network.</Text>
+                    </div>
+                  )}
+                </div>
+              )}
             </Card>
           )}
           
