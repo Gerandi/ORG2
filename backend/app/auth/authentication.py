@@ -1,6 +1,6 @@
 import os
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Set, List
 
 from fastapi import Depends, Request, HTTPException, status, Response
@@ -54,7 +54,7 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
     
     async def on_after_login(self, user: User, request: Optional[Request] = None, response: Optional[Response] = None):
         """Update last login date."""
-        user.last_login = datetime.utcnow(timezone.utc)
+        user.last_login = datetime.now(timezone.utc)
         await self.user_db.update(user, {"last_login": user.last_login})
     
     async def validate_password(self, password: str, user: User) -> None:

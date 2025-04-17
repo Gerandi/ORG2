@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import models
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 import jwt
 
@@ -63,17 +63,32 @@ async def login_access_refresh_token(form_data: OAuth2PasswordRequestForm = Depe
     user_manager = await anext(fastapi_users.get_user_manager())
     
     try:
-        # Use fastapi-users to authenticate
-        user = await user_manager.authenticate(
-            form_data.username, form_data.password
-        )
-        
+        # Get user by email (form_data.username holds the email)
+        user = await user_manager.get_by_email(form_data.username)
+
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Incorrect username or password",
+                detail="Incorrect username or password", # Keep generic message
             )
-        
+
+        # Verify password
+        try:
+            verified, _ = await user_manager.verify_password(form_data.password, user)
+            if not verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Incorrect username or password", # Keep generic message
+                )
+        except Exception as verify_exc:
+             # Handle potential errors during verification if needed
+             print(f"Password verification error: {verify_exc}")
+             raise HTTPException(
+                 status_code=status.HTTP_400_BAD_REQUEST,
+                 detail="Incorrect username or password",
+             )
+
+        # Check if user is active (moved after password verification)
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -85,7 +100,7 @@ async def login_access_refresh_token(form_data: OAuth2PasswordRequestForm = Depe
         refresh_token = create_refresh_token(data={"sub": str(user.id)})
         
         # Update last login date
-        user.last_login = datetime.utcnow(timezone.utc)
+        user.last_login = datetime.now(timezone.utc)
         await user_manager.user_db.update(user)
         
         return {
