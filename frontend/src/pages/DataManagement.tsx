@@ -485,80 +485,95 @@ const DataManagement: React.FC = () => {
         </div>
       </div>
       
-      {/* Module Tabs */}
-      <Tabs
-        items={[
-          { id: 'datasets', label: 'Datasets' },
-          { id: 'preprocessing', label: 'Data Processing' },
-          { id: 'anonymization', label: 'Anonymization' }
-        ]}
-        activeTab={activeTab}
-        onChange={handleTabChange}
-      />
-      
-      {/* Error message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-          <div className="flex">
-            <div className="shrink-0">
-              <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <Text variant="p" className="text-sm text-red-700">
-                {error}
-              </Text>
-            </div>
-          </div>
-        </div>
+      {/* Check if a project is selected */}
+      {!selectedProject && (
+        <Card className="text-center p-8">
+          <Heading level={4}>No Project Selected</Heading>
+          <Text className="mt-2 text-gray-600">
+            Please select an active project from the dropdown in the header to view its content.
+          </Text>
+        </Card>
       )}
       
-      {/* Datasets Tab Content */}
-      {activeTab === 'datasets' && (
-        <div className="space-y-6">
-          {viewMode === 'list' ? renderDatasetsList() : renderDatasetDetail()}
-        </div>
-      )}
-      
-      {/* Preprocessing Tab Content */}
-      {activeTab === 'preprocessing' && renderProcessingTab()}
-      
-      {/* Anonymization Tab Content */}
-      {activeTab === 'anonymization' && renderAnonymizationTab()}
-      
-      {/* Data Upload Modal */}
-      {dataUploadModal && (
-        <DataUploadModal 
-          onClose={() => setDataUploadModal(false)} 
-          onSuccess={fetchDatasets}
-        />
-      )}
-      
-      {/* Delete Confirmation Modal */}
-      {confirmDelete !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6">
-            <Heading level={3} className="mb-4">Confirm Deletion</Heading>
-            <Text variant="p" className="mb-6">
-              Are you sure you want to delete this dataset? This action cannot be undone.
-            </Text>
-            <div className="flex justify-end space-x-3">
-              <Button 
-                variant="outline" 
-                onClick={handleCancelDelete}
-              >
-                Cancel
-              </Button>
-              <Button 
-                variant="danger"
-                onClick={handleConfirmDelete}
-              >
-                Delete
-              </Button>
+      {/* Only show content if a project is selected */}
+      {selectedProject && (
+        <>
+          {/* Module Tabs */}
+          <Tabs
+            items={[
+              { id: 'datasets', label: 'Datasets' },
+              { id: 'preprocessing', label: 'Data Processing' },
+              { id: 'anonymization', label: 'Anonymization' }
+            ]}
+            activeTab={activeTab}
+            onChange={handleTabChange}
+          />
+          
+          {/* Error message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+              <div className="flex">
+                <div className="shrink-0">
+                  <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <Text variant="p" className="text-sm text-red-700">
+                    {error}
+                  </Text>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+          
+          {/* Datasets Tab Content */}
+          {activeTab === 'datasets' && (
+            <div className="space-y-6">
+              {viewMode === 'list' ? renderDatasetsList() : renderDatasetDetail()}
+            </div>
+          )}
+          
+          {/* Preprocessing Tab Content */}
+          {activeTab === 'preprocessing' && renderProcessingTab()}
+          
+          {/* Anonymization Tab Content */}
+          {activeTab === 'anonymization' && renderAnonymizationTab()}
+          
+          {/* Data Upload Modal */}
+          {dataUploadModal && (
+            <DataUploadModal 
+              onClose={() => setDataUploadModal(false)} 
+              onSuccess={fetchDatasets}
+            />
+          )}
+          
+          {/* Delete Confirmation Modal */}
+          {confirmDelete !== null && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg w-full max-w-md p-6">
+                <Heading level={3} className="mb-4">Confirm Deletion</Heading>
+                <Text variant="p" className="mb-6">
+                  Are you sure you want to delete this dataset? This action cannot be undone.
+                </Text>
+                <div className="flex justify-end space-x-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleCancelDelete}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    variant="danger"
+                    onClick={handleConfirmDelete}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

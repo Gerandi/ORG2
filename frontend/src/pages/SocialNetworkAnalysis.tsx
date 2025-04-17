@@ -4,7 +4,7 @@ import { Heading, Text } from '../components/atoms/Typography';
 import Card from '../components/atoms/Card';
 import Button from '../components/atoms/Button';
 import Tabs from '../components/molecules/Tabs';
-import { useNetworkContext } from '../shared/contexts';
+import { useNetworkContext, useProjectContext } from '../shared/contexts';
 import NetworkGraph from '../components/organisms/NetworkGraph';
 import NetworkControls from '../components/organisms/NetworkControls';
 import NetworkMetricsPanel from '../components/organisms/NetworkMetricsPanel';
@@ -26,6 +26,9 @@ const SocialNetworkAnalysis: React.FC = () => {
   // Ref for SVG download
   const networkContainerRef = useRef<HTMLDivElement>(null);
 
+  // Get the currently selected project from the project context
+  const { selectedProject } = useProjectContext();
+
   const { 
     networks, 
     selectedNetwork, 
@@ -45,10 +48,15 @@ const SocialNetworkAnalysis: React.FC = () => {
     updateVisualizationOptions
   } = useNetworkContext();
 
-  // Load networks on mount
+  // Load networks on mount and when the selected project changes
   useEffect(() => {
-    fetchNetworks();
-  }, [fetchNetworks]);
+    if (selectedProject) {
+      fetchNetworks(selectedProject.id);
+    } else {
+      // Clear networks if no project is selected
+      fetchNetworks(undefined);
+    }
+  }, [fetchNetworks, selectedProject]);
 
   // Load network data when a network is selected
   useEffect(() => {
@@ -246,221 +254,236 @@ const SocialNetworkAnalysis: React.FC = () => {
         </div>
       </div>
       
-      {/* Network Selection */}
-      <Card padding="none" className="p-3">
-        <div className="flex items-center">
-          <div className="mr-3">
-            <label htmlFor="network-select" className="block text-sm font-medium text-gray-700">
-              Network:
-            </label>
-          </div>
-          <select 
-            id="network-select"
-            className="w-full max-w-xs p-2 text-sm border border-gray-300 rounded-md"
-            value={selectedNetwork?.id || ''}
-            onChange={(e) => {
-              const id = parseInt(e.target.value);
-              if (!isNaN(id)) {
-                selectNetwork(id);
-              }
-            }}
-          >
-            <option value="">Select a network</option>
-            {networks.map(network => (
-              <option key={network.id} value={network.id}>
-                {network.name} ({network.node_count} nodes, {network.edge_count} edges)
-              </option>
-            ))}
-          </select>
-          
-          {selectedNetwork && (
-            <div className="ml-4 text-sm text-gray-500">
-              Created: {new Date(selectedNetwork.created_at).toLocaleDateString()} | 
-              Updated: {new Date(selectedNetwork.updated_at).toLocaleDateString()}
-            </div>
-          )}
-        </div>
-      </Card>
-      
-      {/* Error message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <div className="flex">
-            <div className="shrink-0">
-              <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <Text variant="p" className="text-sm text-red-700">
-                {error}
-              </Text>
-            </div>
-          </div>
-        </div>
+      {/* Check if a project is selected */}
+      {!selectedProject && (
+        <Card className="text-center p-8">
+          <Heading level={4}>No Project Selected</Heading>
+          <Text className="mt-2 text-gray-600">
+            Please select an active project from the dropdown in the header to view its content.
+          </Text>
+        </Card>
       )}
       
-      {/* Module Tabs */}
-      <Tabs
-        items={[
-          { id: 'visualization', label: 'Network Visualization' },
-          { id: 'metrics', label: 'Network Metrics' },
-          { id: 'communities', label: 'Community Detection' },
-          { id: 'prediction', label: 'Link Prediction' },
-          { id: 'dynamics', label: 'Dynamic Analysis' }
-        ]}
-        activeTab={activeTab}
-        onChange={handleTabChange}
-        variant="underline"
-      />
-      
-      {/* Network Visualization Tab Content */}
-      {activeTab === 'visualization' && (
-        <div className="flex h-[calc(100vh-16rem)]">
-          {/* Left Panel - Controls */}
-          {showControls && (
-            <div className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col overflow-y-auto">
-              <NetworkControls 
-                visualizationOptions={visualizationOptions}
-                onOptionsChange={updateVisualizationOptions}
-                networkAttributes={{
-                  departments: ['Marketing', 'Sales', 'Engineering', 'HR', 'Finance'],
-                  roles: ['Manager', 'Director', 'Specialist', 'Assistant', 'Coordinator'],
-                  otherAttributes: ['tenure', 'performance', 'team']
+      {/* Only show content if a project is selected */}
+      {selectedProject && (
+        <>
+          {/* Network Selection */}
+          <Card padding="none" className="p-3">
+            <div className="flex items-center">
+              <div className="mr-3">
+                <label htmlFor="network-select" className="block text-sm font-medium text-gray-700">
+                  Network:
+                </label>
+              </div>
+              <select 
+                id="network-select"
+                className="w-full max-w-xs p-2 text-sm border border-gray-300 rounded-md"
+                value={selectedNetwork?.id || ''}
+                onChange={(e) => {
+                  const id = parseInt(e.target.value);
+                  if (!isNaN(id)) {
+                    selectNetwork(id);
+                  }
                 }}
-              />
+              >
+                <option value="">Select a network</option>
+                {networks.map(network => (
+                  <option key={network.id} value={network.id}>
+                    {network.name} ({network.node_count} nodes, {network.edge_count} edges)
+                  </option>
+                ))}
+              </select>
+              
+              {selectedNetwork && (
+                <div className="ml-4 text-sm text-gray-500">
+                  Created: {new Date(selectedNetwork.created_at).toLocaleDateString()} | 
+                  Updated: {new Date(selectedNetwork.updated_at).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+          </Card>
+          
+          {/* Error message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <div className="shrink-0">
+                  <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <Text variant="p" className="text-sm text-red-700">
+                    {error}
+                  </Text>
+                </div>
+              </div>
             </div>
           )}
           
-          {/* Center Panel - Network Visualization */}
-          <div className="flex-1 relative flex flex-col" ref={networkContainerRef}>
-            {/* Visualization Toolbar */}
-            <NetworkToolbar 
-              onZoomIn={handleZoomIn}
-              onZoomOut={handleZoomOut}
-              onReset={handleResetView}
-              onDownload={handleDownload}
-              onShareGraph={handleShareGraph}
-              onToggleSettings={() => setShowControls(!showControls)}
-              onToggleMetrics={() => setShowMetricsPanel(!showMetricsPanel)}
-              onSearch={handleSearch}
-              showMetricsPanel={showMetricsPanel}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-            />
-            
-            {/* Network Visualization Canvas */}
-            <div className="flex-1 bg-gray-50 relative">
-              {isLoading && !networkData ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          {/* Module Tabs */}
+          <Tabs
+            items={[
+              { id: 'visualization', label: 'Network Visualization' },
+              { id: 'metrics', label: 'Network Metrics' },
+              { id: 'communities', label: 'Community Detection' },
+              { id: 'prediction', label: 'Link Prediction' },
+              { id: 'dynamics', label: 'Dynamic Analysis' }
+            ]}
+            activeTab={activeTab}
+            onChange={handleTabChange}
+            variant="underline"
+          />
+          
+          {/* Network Visualization Tab Content */}
+          {activeTab === 'visualization' && (
+            <div className="flex h-[calc(100vh-16rem)]">
+              {/* Left Panel - Controls */}
+              {showControls && (
+                <div className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col overflow-y-auto">
+                  <NetworkControls 
+                    visualizationOptions={visualizationOptions}
+                    onOptionsChange={updateVisualizationOptions}
+                    networkAttributes={{
+                      departments: ['Marketing', 'Sales', 'Engineering', 'HR', 'Finance'],
+                      roles: ['Manager', 'Director', 'Specialist', 'Assistant', 'Coordinator'],
+                      otherAttributes: ['tenure', 'performance', 'team']
+                    }}
+                  />
                 </div>
-              ) : !networkData ? (
-                <div className="absolute inset-0 flex items-center justify-center flex-col">
-                  <Network className="h-16 w-16 text-gray-300 mb-4" />
-                  <Text variant="caption" className="text-gray-400">
-                    {networks.length > 0 
-                      ? 'Select a network from the dropdown above' 
-                      : 'No networks available. Create a new network to get started.'}
-                  </Text>
-                  {networks.length === 0 && (
-                    <Button 
-                      variant="primary" 
-                      className="mt-4"
-                      style={{ backgroundColor: '#9333ea', borderColor: '#9333ea' }}
-                      onClick={() => setShowNetworkModal(true)}
-                    >
-                      <Plus size={16} className="mr-1" />
-                      New Network
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                // Render the D3.js network graph
-                <NetworkGraph
-                  nodes={networkData.nodes}
-                  edges={networkData.edges}
-                  directed={networkData.directed}
-                  weighted={networkData.weighted}
-                  visualizationOptions={visualizationOptions}
-                  onNodeClick={handleNodeClick}
-                  width={networkContainerRef.current?.clientWidth}
-                  height={networkContainerRef.current?.clientHeight}
-                />
               )}
               
-              {/* Legend */}
-              {networkData && colorCategories.size > 0 && (
-                <div className="absolute bottom-4 left-4">
-                  <NetworkLegend 
-                    visualizationOptions={visualizationOptions}
-                    colorCategories={colorCategories}
+              {/* Center Panel - Network Visualization */}
+              <div className="flex-1 relative flex flex-col" ref={networkContainerRef}>
+                {/* Visualization Toolbar */}
+                <NetworkToolbar 
+                  onZoomIn={handleZoomIn}
+                  onZoomOut={handleZoomOut}
+                  onReset={handleResetView}
+                  onDownload={handleDownload}
+                  onShareGraph={handleShareGraph}
+                  onToggleSettings={() => setShowControls(!showControls)}
+                  onToggleMetrics={() => setShowMetricsPanel(!showMetricsPanel)}
+                  onSearch={handleSearch}
+                  showMetricsPanel={showMetricsPanel}
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                />
+                
+                {/* Network Visualization Canvas */}
+                <div className="flex-1 bg-gray-50 relative">
+                  {isLoading && !networkData ? (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                    </div>
+                  ) : !networkData ? (
+                    <div className="absolute inset-0 flex items-center justify-center flex-col">
+                      <Network className="h-16 w-16 text-gray-300 mb-4" />
+                      <Text variant="caption" className="text-gray-400">
+                        {networks.length > 0 
+                          ? 'Select a network from the dropdown above' 
+                          : 'No networks available. Create a new network to get started.'}
+                      </Text>
+                      {networks.length === 0 && (
+                        <Button 
+                          variant="primary" 
+                          className="mt-4"
+                          style={{ backgroundColor: '#9333ea', borderColor: '#9333ea' }}
+                          onClick={() => setShowNetworkModal(true)}
+                        >
+                          <Plus size={16} className="mr-1" />
+                          New Network
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    // Render the D3.js network graph
+                    <NetworkGraph
+                      nodes={networkData.nodes}
+                      edges={networkData.edges}
+                      directed={networkData.directed}
+                      weighted={networkData.weighted}
+                      visualizationOptions={visualizationOptions}
+                      onNodeClick={handleNodeClick}
+                      width={networkContainerRef.current?.clientWidth}
+                      height={networkContainerRef.current?.clientHeight}
+                    />
+                  )}
+                  
+                  {/* Legend */}
+                  {networkData && colorCategories.size > 0 && (
+                    <div className="absolute bottom-4 left-4">
+                      <NetworkLegend 
+                        visualizationOptions={visualizationOptions}
+                        colorCategories={colorCategories}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Right Panel - Node/Network Details */}
+              {showMetricsPanel && (
+                <div className="w-72 bg-white border-l border-gray-200 flex flex-col">
+                  <NetworkMetricsPanel 
+                    network={selectedNetwork}
+                    metrics={networkMetrics}
+                    communities={communities}
+                    selectedNode={selectedNode}
+                    onGenerateReport={handleGenerateReport}
+                    onExportMetrics={handleExportMetrics}
+                    isLoading={isLoading}
                   />
                 </div>
               )}
             </div>
-          </div>
-          
-          {/* Right Panel - Node/Network Details */}
-          {showMetricsPanel && (
-            <div className="w-72 bg-white border-l border-gray-200 flex flex-col">
-              <NetworkMetricsPanel 
-                network={selectedNetwork}
-                metrics={networkMetrics}
-                communities={communities}
-                selectedNode={selectedNode}
-                onGenerateReport={handleGenerateReport}
-                onExportMetrics={handleExportMetrics}
-                isLoading={isLoading}
-              />
-            </div>
           )}
-        </div>
-      )}
-      
-      {/* Other tabs content */}
-      {activeTab === 'metrics' && (
-        <Card>
-          <Heading level={3}>Network Metrics</Heading>
-          <Text variant="caption" className="mt-2">
-            Network metrics calculation and analysis tools will be implemented here.
-          </Text>
-        </Card>
-      )}
-      
-      {activeTab === 'communities' && (
-        <Card>
-          <Heading level={3}>Community Detection</Heading>
-          <Text variant="caption" className="mt-2">
-            Community detection algorithms and visualization will be implemented here.
-          </Text>
-        </Card>
-      )}
-      
-      {activeTab === 'prediction' && (
-        <Card>
-          <Heading level={3}>Link Prediction</Heading>
-          <Text variant="caption" className="mt-2">
-            Link prediction models and analysis will be implemented here.
-          </Text>
-        </Card>
-      )}
-      
-      {activeTab === 'dynamics' && (
-        <Card>
-          <Heading level={3}>Dynamic Analysis</Heading>
-          <Text variant="caption" className="mt-2">
-            Dynamic network analysis tools and visualization will be implemented here.
-          </Text>
-        </Card>
-      )}
-      
-      {/* Network Creation Modal */}
-      {showNetworkModal && (
-        <NetworkCreationModal
-          onClose={() => setShowNetworkModal(false)}
-          onCreateNetwork={handleCreateNetwork}
-        />
+          
+          {/* Other tabs content */}
+          {activeTab === 'metrics' && (
+            <Card>
+              <Heading level={3}>Network Metrics</Heading>
+              <Text variant="caption" className="mt-2">
+                Network metrics calculation and analysis tools will be implemented here.
+              </Text>
+            </Card>
+          )}
+          
+          {activeTab === 'communities' && (
+            <Card>
+              <Heading level={3}>Community Detection</Heading>
+              <Text variant="caption" className="mt-2">
+                Community detection algorithms and visualization will be implemented here.
+              </Text>
+            </Card>
+          )}
+          
+          {activeTab === 'prediction' && (
+            <Card>
+              <Heading level={3}>Link Prediction</Heading>
+              <Text variant="caption" className="mt-2">
+                Link prediction models and analysis will be implemented here.
+              </Text>
+            </Card>
+          )}
+          
+          {activeTab === 'dynamics' && (
+            <Card>
+              <Heading level={3}>Dynamic Analysis</Heading>
+              <Text variant="caption" className="mt-2">
+                Dynamic network analysis tools and visualization will be implemented here.
+              </Text>
+            </Card>
+          )}
+          
+          {/* Network Creation Modal */}
+          {showNetworkModal && (
+            <NetworkCreationModal
+              onClose={() => setShowNetworkModal(false)}
+              onCreateNetwork={handleCreateNetwork}
+            />
+          )}
+        </>
       )}
     </div>
   );
