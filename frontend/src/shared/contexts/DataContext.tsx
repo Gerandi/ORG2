@@ -3,9 +3,26 @@ import { Dataset, ProcessingOptions, AnonymizationOptions, TieStrengthDefinition
 import { dataService } from '../services';
 import { useAuthContext } from './AuthContext';
 
+// Define interfaces for preview and stats
+interface DatasetPreview {
+  columns: string[];
+  data: any[];
+  total_rows: number;
+}
+
+interface DatasetStats {
+  row_count: number;
+  column_count: number;
+  missing_values: Record<string, number>;
+  data_types: Record<string, string>;
+  statistics: Record<string, any>;
+}
+
 interface DataContextProps {
   datasets: Dataset[];
   selectedDataset: Dataset | null;
+  dataPreview: DatasetPreview | null;
+  dataStats: DatasetStats | null;
   isLoading: boolean;
   error: string | null;
   fetchDatasets: () => Promise<void>;
@@ -17,6 +34,8 @@ interface DataContextProps {
   anonymizeDataset: (id: number, options: AnonymizationOptions) => Promise<void>;
   uploadDataset: (file: File, name?: string) => Promise<void>;
   defineTieStrength: (id: number, definition: TieStrengthDefinition) => Promise<void>;
+  getDatasetPreview: (id: number, limit?: number) => Promise<void>;
+  getDatasetStats: (id: number) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
@@ -25,6 +44,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const { isAuthenticated } = useAuthContext();
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
+  const [dataPreview, setDataPreview] = useState<DatasetPreview | null>(null);
+  const [dataStats, setDataStats] = useState<DatasetStats | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -46,12 +67,45 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const selectDataset = useCallback(async (id: number): Promise<void> => {
     setIsLoading(true);
     setError(null);
+    // Reset preview and stats when selecting a new dataset
+    setDataPreview(null);
+    setDataStats(null);
     
     try {
       const dataset = await dataService.getDataset(id);
       setSelectedDataset(dataset);
     } catch (err) {
       setError('Failed to fetch dataset details');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+  
+  const getDatasetPreview = useCallback(async (id: number, limit: number = 100): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const preview = await dataService.getDatasetPreview(id, limit);
+      setDataPreview(preview);
+    } catch (err) {
+      setError('Failed to fetch dataset preview');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+  
+  const getDatasetStats = useCallback(async (id: number): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const stats = await dataService.getDatasetStats(id);
+      setDataStats(stats);
+    } catch (err) {
+      setError('Failed to fetch dataset statistics');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -190,6 +244,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
       // Clear data if not authenticated
       setDatasets([]);
       setSelectedDataset(null);
+      setDataPreview(null);
+      setDataStats(null);
     }
   }, [fetchDatasets, isAuthenticated]);
   
@@ -198,6 +254,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
       value={{
         datasets,
         selectedDataset,
+        dataPreview,
+        dataStats,
         isLoading,
         error,
         fetchDatasets,
@@ -209,6 +267,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         anonymizeDataset,
         uploadDataset,
         defineTieStrength,
+        getDatasetPreview,
+        getDatasetStats,
       }}
     >
       {children}

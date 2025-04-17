@@ -29,7 +29,8 @@ const DataManagement: React.FC = () => {
     selectDataset,
     deleteDataset,
     processDataset,
-    anonymizeDataset
+    anonymizeDataset,
+    dataService
   } = useDataContext();
 
   // Load datasets on component mount
@@ -104,6 +105,22 @@ const DataManagement: React.FC = () => {
     fetchDatasets();
     if (selectedDatasetId) {
       selectDataset(selectedDatasetId);
+    }
+  };
+  
+  const handleDownload = async (id: number, format: 'csv' | 'xlsx' | 'json') => {
+    try {
+      const blob = await dataService.downloadDataset(id, format);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `dataset_${id}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Download failed:', err);
     }
   };
 
@@ -235,13 +252,36 @@ const DataManagement: React.FC = () => {
                         >
                           <Eye size={16} />
                         </Button>
-                        <Button 
-                          variant="icon" 
-                          title="Download Dataset"
-                          onClick={() => {}}
-                        >
-                          <Download size={16} />
-                        </Button>
+                        <div className="relative group">
+                          <Button 
+                            variant="icon" 
+                            title="Download Dataset"
+                          >
+                            <Download size={16} />
+                          </Button>
+                          <div className="absolute right-0 mt-1 w-36 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10 hidden group-hover:block">
+                            <div className="py-1">
+                              <button
+                                onClick={() => handleDownload(dataset.id, 'csv')}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              >
+                                CSV
+                              </button>
+                              <button
+                                onClick={() => handleDownload(dataset.id, 'xlsx')}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              >
+                                Excel (XLSX)
+                              </button>
+                              <button
+                                onClick={() => handleDownload(dataset.id, 'json')}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              >
+                                JSON
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                         <Button 
                           variant="icon" 
                           title="Delete Dataset"
@@ -438,7 +478,7 @@ const DataManagement: React.FC = () => {
       <Tabs
         items={[
           { id: 'datasets', label: 'Datasets' },
-          { id: 'preprocessing', label: 'Data Processing' }, // Renamed
+          { id: 'preprocessing', label: 'Data Processing' },
           { id: 'anonymization', label: 'Anonymization' }
         ]}
         activeTab={activeTab}
@@ -472,35 +512,6 @@ const DataManagement: React.FC = () => {
       
       {/* Preprocessing Tab Content */}
       {activeTab === 'preprocessing' && renderProcessingTab()}
-      
-      {/* Tie Strength Tab Content */}
-      {activeTab === 'tie-strength' && (
-        <>
-          {!selectedDataset ? (
-            <Card>
-              <div className="text-center py-12">
-                <Database className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <Heading level={4} className="mb-2">No dataset selected</Heading>
-                <Text variant="caption" className="text-gray-500">
-                  Please select a dataset from the Datasets tab to define tie strength.
-                </Text>
-                <Button 
-                  variant="primary" 
-                  className="mt-4"
-                  onClick={() => {
-                    setActiveTab('datasets');
-                    setViewMode('list');
-                  }}
-                >
-                  View Datasets
-                </Button>
-              </div>
-            </Card>
-          ) : (
-            <TieStrengthDefinitionForm dataset={selectedDataset} />
-          )}
-        </>
-      )}
       
       {/* Anonymization Tab Content */}
       {activeTab === 'anonymization' && renderAnonymizationTab()}

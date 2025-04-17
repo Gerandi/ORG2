@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldIcon, AlertCircle } from 'lucide-react';
 import Card from '../atoms/Card';
 import { Heading, Text } from '../atoms/Typography';
@@ -30,6 +30,19 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
     k_value: 5,
     keep_mapping: true
   });
+
+  // Reset form when datasetId changes
+  useEffect(() => {
+    setOptions({
+      method: 'pseudonymization',
+      sensitive_fields: [],
+      quasi_identifiers: [],
+      parameters: {},
+      k_value: 5,
+      keep_mapping: true
+    });
+    setError(null);
+  }, [datasetId]);
 
   const anonymizationMethods = [
     { 
@@ -117,6 +130,11 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
     
     if (options.method === 'k_anonymity' && (!options.quasi_identifiers || options.quasi_identifiers.length === 0)) {
       setError('For K-Anonymity, please select at least one quasi-identifier');
+      return;
+    }
+
+    if (options.method === 'k_anonymity' && (!options.k_value || options.k_value < 2)) {
+      setError('For K-Anonymity, K value must be at least 2');
       return;
     }
 

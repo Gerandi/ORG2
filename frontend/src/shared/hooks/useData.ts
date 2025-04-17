@@ -1,21 +1,23 @@
 import { useState, useCallback } from 'react';
 import { useDataContext } from '../contexts/DataContext';
-import { Dataset, DatasetPreview, ProcessingOptions, AnonymizationOptions } from '../../types/data';
+import { Dataset, ProcessingOptions, AnonymizationOptions } from '../../types/data';
 
 export const useData = () => {
   const {
     datasets,
     selectedDataset,
     dataPreview,
+    dataStats,
     isLoading,
     error,
     fetchDatasets,
     selectDataset,
     uploadDataset,
     deleteDataset,
-    previewDataset,
     processDataset,
-    anonymizeDataset
+    anonymizeDataset,
+    getDatasetPreview,
+    getDatasetStats
   } = useDataContext();
 
   const [processingState, setProcessingState] = useState<Record<string, boolean>>({});
@@ -39,7 +41,7 @@ export const useData = () => {
     try {
       // Custom uploading with progress tracking could be implemented here
       // This would require modifying the dataService to support progress tracking
-      const result = await uploadDataset(file, name, description);
+      const result = await uploadDataset(file, name);
       return result;
     } catch (error) {
       console.error('Error uploading dataset:', error);
@@ -90,6 +92,41 @@ export const useData = () => {
     }
   }, [anonymizeDataset]);
 
+  // Enhanced dataset preview with error handling
+  const handleGetDatasetPreview = useCallback(async (
+    datasetId: number,
+    limit: number = 100
+  ) => {
+    setProcessing('preview', true);
+    setLocalError(null);
+    
+    try {
+      await getDatasetPreview(datasetId, limit);
+    } catch (error) {
+      console.error('Error getting dataset preview:', error);
+      setLocalError('Failed to get dataset preview');
+    } finally {
+      setProcessing('preview', false);
+    }
+  }, [getDatasetPreview]);
+
+  // Enhanced dataset stats with error handling
+  const handleGetDatasetStats = useCallback(async (
+    datasetId: number
+  ) => {
+    setProcessing('stats', true);
+    setLocalError(null);
+    
+    try {
+      await getDatasetStats(datasetId);
+    } catch (error) {
+      console.error('Error getting dataset stats:', error);
+      setLocalError('Failed to get dataset stats');
+    } finally {
+      setProcessing('stats', false);
+    }
+  }, [getDatasetStats]);
+
   // Function to check file size and type before uploading
   const validateFile = useCallback((file: File): string | null => {
     // Maximum file size (10MB)
@@ -118,6 +155,7 @@ export const useData = () => {
     datasets,
     selectedDataset,
     dataPreview,
+    dataStats,
     isLoading: isLoading || Object.values(processingState).some(Boolean),
     isProcessing: processingState,
     error: error || localError,
@@ -125,9 +163,10 @@ export const useData = () => {
     selectDataset,
     uploadDataset: handleUploadDataset,
     deleteDataset,
-    previewDataset,
     processDataset: handleProcessDataset,
     anonymizeDataset: handleAnonymizeDataset,
+    getDatasetPreview: handleGetDatasetPreview,
+    getDatasetStats: handleGetDatasetStats,
     validateFile
   };
 };

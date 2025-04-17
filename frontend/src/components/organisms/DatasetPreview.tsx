@@ -10,71 +10,65 @@ interface DatasetPreviewProps {
   datasetId: number;
 }
 
-interface DataPreview {
-  columns: string[];
-  data: any[];
-  total_rows: number;
-}
-
-interface DataStats {
-  row_count: number;
-  column_count: number;
-  missing_values: Record<string, number>;
-  data_types: Record<string, string>;
-  statistics: Record<string, any>;
-}
-
 const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
   const [activeTab, setActiveTab] = useState('preview');
-  const [preview, setPreview] = useState<DataPreview | null>(null);
-  const [stats, setStats] = useState<DataStats | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
-  const { dataService } = useDataContext();
+  const { 
+    dataPreview,
+    dataStats, 
+    getDatasetPreview, 
+    getDatasetStats, 
+    isLoading, 
+    error,
+    dataService
+  } = useDataContext();
 
+  // Load preview data when component mounts or datasetId changes
   useEffect(() => {
     if (datasetId) {
       loadPreview();
     }
   }, [datasetId]);
 
+  // Load preview data
   const loadPreview = async () => {
-    setIsLoading(true);
-    setError(null);
+    setPreviewLoading(true);
+    setPreviewError(null);
 
     try {
-      const previewData = await dataService.getDatasetPreview(datasetId, 100);
-      setPreview(previewData);
+      await getDatasetPreview(datasetId, 100);
     } catch (err) {
       console.error('Failed to load preview:', err);
-      setError('Failed to load dataset preview');
+      setPreviewError('Failed to load dataset preview');
     } finally {
-      setIsLoading(false);
+      setPreviewLoading(false);
     }
   };
 
+  // Load stats data
   const loadStats = async () => {
-    if (stats) return; // Only load once
-
-    setIsLoading(true);
-    setError(null);
+    if (dataStats) return; // Only load once if already loaded
+    setStatsLoading(true);
+    setStatsError(null);
 
     try {
-      const statsData = await dataService.getDatasetStats(datasetId);
-      setStats(statsData);
+      await getDatasetStats(datasetId);
     } catch (err) {
       console.error('Failed to load stats:', err);
-      setError('Failed to load dataset statistics');
+      setStatsError('Failed to load dataset statistics');
     } finally {
-      setIsLoading(false);
+      setStatsLoading(false);
     }
   };
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
     
-    if (tabId === 'statistics' && !stats) {
+    if (tabId === 'statistics' && !dataStats) {
       loadStats();
     }
   };
@@ -92,11 +86,12 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
       document.body.removeChild(a);
     } catch (err) {
       console.error('Download failed:', err);
-      setError('Failed to download dataset');
+      setPreviewError('Failed to download dataset');
     }
   };
 
-  if (isLoading && !preview && !stats) {
+  // Show loading state when first loading preview
+  if ((previewLoading || isLoading) && !dataPreview && !dataStats) {
     return (
       <Card>
         <div className="flex justify-center items-center h-64">
@@ -106,17 +101,18 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
     );
   }
 
-  if (error && !preview && !stats) {
+  // Show error state when failed to load preview
+  if ((previewError || error) && !dataPreview && !dataStats) {
     return (
       <Card>
         <div className="flex flex-col items-center justify-center h-64">
           <Info className="text-red-500 h-12 w-12 mb-4" />
-          <Text className="text-red-600">{error}</Text>
+          <Text className="text-red-600">{previewError || error}</Text>
           <Button
             variant="outline"
             className="mt-4"
             onClick={() => {
-              setError(null);
+              setPreviewError(null);
               loadPreview();
             }}
           >
@@ -180,12 +176,12 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
         />
       </div>
       
-      {activeTab === 'preview' && preview && (
+      {activeTab === 'preview' && dataPreview && (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {preview.columns.map(column => (
+                {dataPreview.columns.map(column => (
                   <th
                     key={column}
                     scope="col"
@@ -197,9 +193,9 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {preview.data.map((row, rowIndex) => (
+              {dataPreview.data.map((row, rowIndex) => (
                 <tr key={rowIndex} className="hover:bg-gray-50">
-                  {preview.columns.map(column => (
+                  {dataPreview.columns.map(column => (
                     <td key={`${rowIndex}-${column}`} className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
                       {row[column]?.toString() || '—'}
                     </td>
@@ -209,9 +205,9 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
             </tbody>
           </table>
           
-          {preview.total_rows > preview.data.length && (
+          {dataPreview.total_rows > dataPreview.data.length && (
             <div className="bg-gray-50 p-3 text-center text-sm text-gray-500 border-t border-gray-200">
-              Showing {preview.data.length} of {preview.total_rows} rows
+              Showing {dataPreview.data.length} of {dataPreview.total_rows} rows
             </div>
           )}
         </div>
@@ -219,31 +215,31 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
       
       {activeTab === 'statistics' && (
         <>
-          {isLoading && !stats ? (
+          {(statsLoading || isLoading) && !dataStats ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
             </div>
-          ) : stats ? (
+          ) : dataStats ? (
             <div className="divide-y divide-gray-200">
               <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-gray-50 p-3 rounded">
                   <Text variant="caption" className="text-gray-500">
                     Rows
                   </Text>
-                  <Heading level={3}>{stats.row_count.toLocaleString()}</Heading>
+                  <Heading level={3}>{dataStats.row_count.toLocaleString()}</Heading>
                 </div>
                 <div className="bg-gray-50 p-3 rounded">
                   <Text variant="caption" className="text-gray-500">
                     Columns
                   </Text>
-                  <Heading level={3}>{stats.column_count.toLocaleString()}</Heading>
+                  <Heading level={3}>{dataStats.column_count.toLocaleString()}</Heading>
                 </div>
                 <div className="bg-gray-50 p-3 rounded">
                   <Text variant="caption" className="text-gray-500">
                     Missing Values
                   </Text>
                   <Heading level={3}>
-                    {Object.values(stats.missing_values).reduce((acc, val) => acc + val, 0).toLocaleString()}
+                    {Object.values(dataStats.missing_values).reduce((acc, val) => acc + val, 0).toLocaleString()}
                   </Heading>
                 </div>
                 <div className="bg-gray-50 p-3 rounded">
@@ -252,7 +248,7 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
                   </Text>
                   <div className="flex flex-wrap mt-1">
                     {Object.entries(
-                      Object.values(stats.data_types).reduce<Record<string, number>>((acc, type) => {
+                      Object.values(dataStats.data_types).reduce<Record<string, number>>((acc, type) => {
                         acc[type] = (acc[type] || 0) + 1;
                         return acc;
                       }, {})
@@ -286,23 +282,23 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {Object.keys(stats.data_types).map(column => (
+                      {Object.keys(dataStats.data_types).map(column => (
                         <tr key={column}>
                           <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                             {column}
                           </td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100">
-                              {stats.data_types[column]}
+                              {dataStats.data_types[column]}
                             </span>
                           </td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {stats.missing_values[column] || 0}
+                            {dataStats.missing_values[column] || 0}
                           </td>
                           <td className="px-6 py-3 text-sm text-gray-500">
-                            {stats.statistics[column] ? (
+                            {dataStats.statistics[column] ? (
                               <div className="flex flex-wrap gap-2">
-                                {Object.entries(stats.statistics[column]).map(([key, value]) => (
+                                {Object.entries(dataStats.statistics[column]).map(([key, value]) => (
                                   <span key={key} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100">
                                     {key}: {typeof value === 'number' ? value.toFixed(2) : value?.toString()}
                                   </span>
@@ -322,12 +318,12 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
           ) : (
             <div className="flex flex-col items-center justify-center h-64">
               <Info className="text-red-500 h-12 w-12 mb-4" />
-              <Text className="text-red-600">{error || 'Failed to load statistics'}</Text>
+              <Text className="text-red-600">{statsError || error || 'Failed to load statistics'}</Text>
               <Button
                 variant="outline"
                 className="mt-4"
                 onClick={() => {
-                  setError(null);
+                  setStatsError(null);
                   loadStats();
                 }}
               >

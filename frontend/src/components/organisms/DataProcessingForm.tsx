@@ -34,6 +34,21 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
     }
   });
 
+  // Reset processing options when datasetId changes
+  useEffect(() => {
+    setProcessingOptions({
+      missing_values: {
+        strategy: 'mean',
+        columns: []
+      },
+      data_types: {},
+      normalization: {
+        strategy: 'min_max',
+        columns: []
+      }
+    });
+  }, [datasetId]);
+
   // Options for the different strategies
   const missingValueStrategies = [
     { value: 'mean', label: 'Replace with Mean' },
@@ -143,6 +158,27 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate the form
+    if (processingOptions.missing_values?.strategy === 'constant' && 
+        processingOptions.missing_values.fill_value === undefined) {
+      setError('Please enter a fill value for constant strategy.');
+      return;
+    }
+    
+    // If using any strategy, columns must be selected
+    if (processingOptions.missing_values?.columns?.length === 0) {
+      setError('Please select at least one column for missing values handling.');
+      return;
+    }
+
+    // If using normalization (not 'none'), columns must be selected
+    if (processingOptions.normalization?.strategy !== 'none' && 
+        processingOptions.normalization?.columns?.length === 0) {
+      setError('Please select at least one column for normalization.');
+      return;
+    }
+    
     setIsSubmitting(true);
     setError(null);
 

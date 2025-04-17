@@ -18,10 +18,9 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [datasetName, setDatasetName] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  const { uploadDataset, isLoading, error: contextError } = useDataContext();
+  const { uploadDataset, isLoading, error } = useDataContext();
   const { projects } = useProjectContext();
 
   useEffect(() => {
@@ -30,15 +29,9 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
       setSelectedFile(null);
       setDatasetName('');
       setSelectedProjectId(null);
-      setError(null);
+      setLocalError(null);
     };
   }, []);
-
-  useEffect(() => {
-    if (contextError) {
-      setError(contextError);
-    }
-  }, [contextError]);
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
@@ -60,24 +53,19 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setError('Please select a file to upload');
+      setLocalError('Please select a file to upload');
       return;
     }
 
     if (!datasetName.trim()) {
-      setError('Please provide a name for the dataset');
+      setLocalError('Please provide a name for the dataset');
       return;
     }
 
-    setError(null);
-    setIsUploading(true);
+    setLocalError(null);
 
     try {
-      await uploadDataset(
-        selectedFile,
-        datasetName,
-        selectedProjectId || undefined
-      );
+      await uploadDataset(selectedFile, datasetName);
 
       // Call success callback
       if (onSuccess) {
@@ -88,9 +76,7 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
       onClose();
     } catch (err) {
       console.error('Upload failed:', err);
-      setError('Failed to upload dataset. Please try again.');
-    } finally {
-      setIsUploading(false);
+      setLocalError('Failed to upload dataset. Please try again.');
     }
   };
 
@@ -191,9 +177,9 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
           </div>
         )}
         
-        {error && (
+        {(localError || error) && (
           <div className="mb-4 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
-            {error}
+            {localError || error}
           </div>
         )}
         
@@ -201,17 +187,17 @@ const DataUploadModal: React.FC<DataUploadModalProps> = ({ onClose, onSuccess })
           <Button 
             variant="outline" 
             onClick={onClose}
-            disabled={isUploading}
+            disabled={isLoading}
           >
             Cancel
           </Button>
           <Button 
             variant="primary"
             onClick={handleUpload}
-            loading={isUploading || isLoading}
-            disabled={isUploading || isLoading || !selectedFile || activeTab !== 'file-upload'}
+            loading={isLoading}
+            disabled={isLoading || !selectedFile || activeTab !== 'file-upload'}
           >
-            {isUploading ? 'Uploading...' : 'Import Data'}
+            {isLoading ? 'Uploading...' : 'Import Data'}
           </Button>
         </div>
       </div>
