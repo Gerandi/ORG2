@@ -345,9 +345,11 @@ const SocialNetworkAnalysis: React.FC = () => {
                     visualizationOptions={visualizationOptions}
                     onOptionsChange={updateVisualizationOptions}
                     networkAttributes={{
-                      departments: ['Marketing', 'Sales', 'Engineering', 'HR', 'Finance'],
-                      roles: ['Manager', 'Director', 'Specialist', 'Assistant', 'Coordinator'],
-                      otherAttributes: ['tenure', 'performance', 'team']
+                      departments: networkData?.nodes ? Array.from(new Set(networkData.nodes.map(node => node.attributes.department || 'Unknown'))) : ['Marketing', 'Sales', 'Engineering', 'HR', 'Finance'],
+                      roles: networkData?.nodes ? Array.from(new Set(networkData.nodes.map(node => node.attributes.role || 'Unknown'))) : ['Manager', 'Director', 'Specialist', 'Assistant', 'Coordinator'],
+                      otherAttributes: networkData?.nodes && networkData.nodes.length > 0 
+                        ? Object.keys(networkData.nodes[0].attributes).filter(key => !['department', 'role'].includes(key))
+                        : ['tenure', 'performance', 'team']
                     }}
                   />
                 </div>

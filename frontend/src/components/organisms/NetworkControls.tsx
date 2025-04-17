@@ -90,6 +90,16 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
     });
   };
 
+  // Handle node size scale change
+  const handleNodeSizeScaleChange = (min: number, max: number) => {
+    onOptionsChange({
+      node_size: {
+        ...visualizationOptions.node_size,
+        scale: [min, max]
+      }
+    });
+  };
+
   // Handle node color option change
   const handleNodeColorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const colorBy = e.target.value as VisualizationOptions['node_color']['by'];
@@ -122,6 +132,16 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
     });
   };
 
+  // Handle edge width scale change
+  const handleEdgeWidthScaleChange = (min: number, max: number) => {
+    onOptionsChange({
+      edge_width: {
+        ...visualizationOptions.edge_width,
+        scale: [min, max]
+      }
+    });
+  };
+
   // Handle show labels toggle
   const handleShowLabelsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onOptionsChange({
@@ -145,6 +165,42 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
         min_tie_strength: value
       }
     });
+  };
+
+  // Handle department filter change
+  const handleDepartmentFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const department = e.target.value;
+    if (!department) {
+      // Clear department filter
+      const newFilters = { ...visualizationOptions.filters };
+      delete newFilters.departments;
+      onOptionsChange({ filters: newFilters });
+    } else {
+      onOptionsChange({
+        filters: {
+          ...visualizationOptions.filters,
+          departments: [department]
+        }
+      });
+    }
+  };
+
+  // Handle role filter change
+  const handleRoleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const role = e.target.value;
+    if (!role) {
+      // Clear role filter
+      const newFilters = { ...visualizationOptions.filters };
+      delete newFilters.roles;
+      onOptionsChange({ filters: newFilters });
+    } else {
+      onOptionsChange({
+        filters: {
+          ...visualizationOptions.filters,
+          roles: [role]
+        }
+      });
+    }
   };
 
   return (
@@ -212,7 +268,7 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
                     className="flex-1" 
                     min="1" 
                     max="10" 
-                    defaultValue="5" 
+                    value={visualizationOptions.layout.parameters?.strength || 5} 
                     onChange={(e) => {
                       const newLayout: LayoutOptions = {
                         ...visualizationOptions.layout,
@@ -269,6 +325,44 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
                   </option>
                 ))}
               </Select>
+            </div>
+          )}
+
+          {visualizationOptions.node_size.by !== 'uniform' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Size Range
+              </label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="number"
+                  value={visualizationOptions.node_size.scale?.[0] || 5}
+                  min={1}
+                  max={20}
+                  step={1}
+                  onChange={(e) => {
+                    const min = parseFloat(e.target.value);
+                    const max = visualizationOptions.node_size.scale?.[1] || 20;
+                    handleNodeSizeScaleChange(min, max);
+                  }}
+                  className="w-20"
+                />
+                <span>to</span>
+                <Input
+                  type="number"
+                  value={visualizationOptions.node_size.scale?.[1] || 20}
+                  min={1}
+                  max={50}
+                  step={1}
+                  onChange={(e) => {
+                    const max = parseFloat(e.target.value);
+                    const min = visualizationOptions.node_size.scale?.[0] || 5;
+                    handleNodeSizeScaleChange(min, max);
+                  }}
+                  className="w-20"
+                />
+                <span>px</span>
+              </div>
             </div>
           )}
 
@@ -380,12 +474,7 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
                   onChange={(e) => {
                     const min = parseFloat(e.target.value);
                     const max = visualizationOptions.edge_width.scale?.[1] || 5;
-                    onOptionsChange({
-                      edge_width: {
-                        ...visualizationOptions.edge_width,
-                        scale: [min, max]
-                      }
-                    });
+                    handleEdgeWidthScaleChange(min, max);
                   }}
                   className="w-20"
                 />
@@ -399,12 +488,7 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
                   onChange={(e) => {
                     const max = parseFloat(e.target.value);
                     const min = visualizationOptions.edge_width.scale?.[0] || 1;
-                    onOptionsChange({
-                      edge_width: {
-                        ...visualizationOptions.edge_width,
-                        scale: [min, max]
-                      }
-                    });
+                    handleEdgeWidthScaleChange(min, max);
                   }}
                   className="w-20"
                 />
@@ -444,11 +528,8 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
                 Department Filter
               </label>
               <Select
-                value={''}
-                onChange={(e) => {
-                  // In a real app, this would update a departments array in filters
-                  // Here we'll just implement the UI pattern
-                }}
+                value={visualizationOptions.filters?.departments?.[0] || ''}
+                onChange={handleDepartmentFilterChange}
                 fullWidth
               >
                 <option value="">All Departments</option>
@@ -467,11 +548,8 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
                 Role Filter
               </label>
               <Select
-                value={''}
-                onChange={(e) => {
-                  // In a real app, this would update a roles array in filters
-                  // Here we'll just implement the UI pattern
-                }}
+                value={visualizationOptions.filters?.roles?.[0] || ''}
+                onChange={handleRoleFilterChange}
                 fullWidth
               >
                 <option value="">All Roles</option>
