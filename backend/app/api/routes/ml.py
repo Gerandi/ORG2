@@ -79,16 +79,21 @@ async def get_model(
 
 @router.post("/prepare-data", response_model=Dict[str, Any])
 async def prepare_data(
-    prepare_data_in: PreparedDataCreate,
+    dataset_id: int = Form(...),
+    target_column: str = Form(...),
+    feature_columns: List[str] = Form(None),
+    network_metrics: List[str] = Form(None),
+    network_id: Optional[int] = Form(None),
+    test_size: float = Form(0.2),
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user)
 ):
     """
-    Prepare data for machine learning, including feature engineering.
+    Prepare data for machine learning, including feature engineering with network metrics.
     """
     try:
         # Fetch the dataset
-        query = select(Dataset).where(Dataset.id == prepare_data_in.dataset_id)
+        query = select(Dataset).where(Dataset.id == dataset_id)
         result = await db.execute(query)
         dataset = result.scalar_one_or_none()
         
@@ -101,24 +106,26 @@ async def prepare_data(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to use this dataset")
         
         # Call the service to prepare the data
-        service_result = MachineLearningService.prepare_data(
-            dataset_file_path=dataset.file_path,
-            target_column=prepare_data_in.target_column,
-            feature_columns=prepare_data_in.feature_columns,
-            network_metrics=prepare_data_in.network_metrics,
-            network_id=prepare_data_in.network_id,
-            test_size=prepare_data_in.test_size
+        service_result = await MachineLearningService.prepare_data(
+            db=db,
+            dataset_id=dataset_id,
+            target_column=target_column,
+            feature_columns=feature_columns,
+            network_metrics=network_metrics,
+            network_id=network_id,
+            test_size=test_size
         )
         
         # Create a new PreparedData record
         new_prepared_data = PreparedData(
+            id=str(uuid.uuid4()),
             user_id=user.id,
-            dataset_id=prepare_data_in.dataset_id,
-            target_column=prepare_data_in.target_column,
-            feature_columns=prepare_data_in.feature_columns,
-            network_metrics=prepare_data_in.network_metrics,
-            network_id=prepare_data_in.network_id,
-            test_size=prepare_data_in.test_size,
+            dataset_id=dataset_id,
+            target_column=target_column,
+            feature_columns=json.dumps(feature_columns) if feature_columns else None,
+            network_metrics=json.dumps(network_metrics) if network_metrics else None,
+            network_id=network_id,
+            test_size=test_size,
             file_path=service_result.get("file_path")
         )
         
@@ -130,7 +137,14 @@ async def prepare_data(
         # Return response with the ID and feature info
         return {
             "id": new_prepared_data.id,
-            "feature_info": service_result.get("feature_info", {})
+            "dataset_id": dataset_id,
+            "target_column": target_column,
+            "file_path": service_result.get("file_path"),
+            "feature_columns": feature_columns,
+            "network_id": network_id,
+            "network_metrics": network_metrics,
+            "feature_info": service_result.get("feature_info", {}),
+            "created_at": new_prepared_data.created_at.isoformat()
         }
     except HTTPException as e:
         raise e

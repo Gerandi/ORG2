@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   BarChart, Database, Share2, Download, RefreshCw, 
   Settings, FileText, Play, AlertCircle, Plus, 
-  Layers, Sliders, TrendingUp, ArrowRight 
+  Layers, Sliders, TrendingUp, ArrowRight, CheckCircle 
 } from 'lucide-react';
 import { Heading, Text } from '../components/atoms/Typography';
 import Card from '../components/atoms/Card';
@@ -13,10 +13,22 @@ import ModelCreationModal from '../components/organisms/ModelCreationModal';
 import ModelTrainingForm from '../components/organisms/ModelTrainingForm';
 import ModelEvaluationPanel from '../components/organisms/ModelEvaluationPanel';
 import FeatureImportanceChart from '../components/organisms/FeatureImportanceChart';
+import DataSelectionPanel from '../components/organisms/ml/DataSelectionPanel';
+import FeatureEngineeringPanel from '../components/organisms/ml/FeatureEngineeringPanel';
 import { MLModel, TrainingOptions } from '../types/ml';
 
+// Define the ML workflow steps
+type MLWorkflowStep = 'data' | 'features' | 'model' | 'train' | 'evaluate';
+
 const MachineLearning: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('models');
+  // ML workflow state
+  const [currentStep, setCurrentStep] = useState<MLWorkflowStep>('data');
+  const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
+  const [targetColumn, setTargetColumn] = useState<string>('');
+  const [preparedDataId, setPreparedDataId] = useState<number | null>(null);
+  
+  // UI state
+  const [activeTab, setActiveTab] = useState('workflow');
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [showModelModal, setShowModelModal] = useState(false);
   const [trainingOptions, setTrainingOptions] = useState<TrainingOptions>({
@@ -34,32 +46,45 @@ const MachineLearning: React.FC = () => {
     algorithm_parameters: {}
   });
 
+  // Access context data
   const { 
     models, 
     selectedModel, 
     algorithms, 
     featureImportance,
+    preparedDataInfo,
     isLoading,
     error,
     fetchModels,
     selectModel,
     createModel,
     trainModel,
-    fetchFeatureImportance
+    fetchFeatureImportance,
+    prepareData
   } = useMLContext();
 
   const { datasets } = useDataContext();
   const { networks } = useNetworkContext();
-  
-  // Get the currently selected project from the project context
   const { selectedProject } = useProjectContext();
 
-  // Load models on component mount and when the selected project changes
+  // Filter datasets by selected project
+  const filteredDatasets = selectedProject 
+    ? datasets.filter(dataset => dataset.project_id === selectedProject.id)
+    : [];
+
+  // Filter networks by selected project  
+  const filteredNetworks = selectedProject
+    ? networks.filter(network => network.project_id === selectedProject.id)
+    : [];
+
+  // Get selected dataset object
+  const selectedDataset = datasets.find(d => d.id === selectedDatasetId);
+
+  // Load models on component mount and when selected project changes
   useEffect(() => {
     if (selectedProject) {
       fetchModels(selectedProject.id);
     } else {
-      // Clear models if no project is selected
       fetchModels(undefined);
     }
   }, [fetchModels, selectedProject]);
@@ -78,19 +103,73 @@ const MachineLearning: React.FC = () => {
     }
   }, [selectedModel, fetchFeatureImportance]);
 
+  // Handle tab change
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
   };
 
+  // Handle ML workflow navigation
+  const handleStepChange = (step: MLWorkflowStep) => {
+    setCurrentStep(step);
+  };
+
+  // Handle dataset and target selection
+  const handleDataSelected = (datasetId: number, targetCol: string) => {
+    setSelectedDatasetId(datasetId);
+    setTargetColumn(targetCol);
+    setCurrentStep('features');
+  };
+
+  // Handle going back to data selection step
+  const handleBackToDataSelection = () => {
+    setCurrentStep('data');
+  };
+
+  // Handle feature engineering and data preparation
+  const handleFeaturesPrepared = async (options: {
+    datasetId: number;
+    features: string[];
+    networkId: number | null;
+    networkMetrics: string[];
+    testSize: number;
+  }) => {
+    try {
+      // Call the prepareData method from MLContext
+      const result = await prepareData({
+        dataset_id: options.datasetId,
+        target_column: targetColumn,
+        feature_columns: options.features,
+        network_id: options.networkId || undefined,
+        network_metrics: options.networkMetrics.length > 0 ? options.networkMetrics : undefined,
+        test_size: options.testSize
+      });
+      
+      // Store the prepared data ID
+      setPreparedDataId(result.id);
+      
+      // Advance to model creation step
+      setCurrentStep('model');
+    } catch (error) {
+      console.error("Error preparing data:", error);
+    }
+  };
+
+  // Handle model selection
   const handleModelSelect = (id: number) => {
     setSelectedModelId(id);
   };
 
+  // Handle model creation
   const handleCreateModel = async (modelData: Partial<MLModel>) => {
-    await createModel(modelData);
+    await createModel({
+      ...modelData,
+      prepared_data_id: preparedDataId
+    });
     await fetchModels();
+    setShowModelModal(false);
   };
 
+  // Handle model training
   const handleTrainModel = async (options: TrainingOptions) => {
     if (selectedModel) {
       await trainModel(selectedModel.id, options);
@@ -100,6 +179,7 @@ const MachineLearning: React.FC = () => {
     }
   };
 
+  // Handle training options update
   const handleUpdateTrainingOptions = (updatedOptions: Partial<TrainingOptions>) => {
     setTrainingOptions(prev => ({
       ...prev,
@@ -116,6 +196,56 @@ const MachineLearning: React.FC = () => {
       value: value,
       label: key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')
     }));
+  };
+
+  // Render progress indicator for the ML workflow
+  const renderProgressIndicator = () => {
+    const steps = [
+      { id: 'data', label: 'Data Selection', icon: Database },
+      { id: 'features', label: 'Feature Engineering', icon: Sliders },
+      { id: 'model', label: 'Model Selection', icon: Layers },
+      { id: 'train', label: 'Training', icon: Play },
+      { id: 'evaluate', label: 'Evaluation', icon: TrendingUp }
+    ];
+
+    return (
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          {steps.map((step, index) => (
+            <React.Fragment key={step.id}>
+              {/* Step indicator */}
+              <div 
+                className={`flex flex-col items-center ${
+                  index <= steps.findIndex(s => s.id === currentStep) 
+                    ? 'text-blue-600' 
+                    : 'text-gray-400'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
+                  step.id === currentStep 
+                    ? 'bg-blue-100 border-2 border-blue-600' 
+                    : index < steps.findIndex(s => s.id === currentStep)
+                      ? 'bg-blue-50 border border-blue-200'
+                      : 'bg-gray-100 border border-gray-200'
+                }`}>
+                  <step.icon size={20} />
+                </div>
+                <span className="text-xs text-center">{step.label}</span>
+              </div>
+              
+              {/* Connector line */}
+              {index < steps.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-2 ${
+                  index < steps.findIndex(s => s.id === currentStep)
+                    ? 'bg-blue-400'
+                    : 'bg-gray-200'
+                }`} />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -148,6 +278,7 @@ const MachineLearning: React.FC = () => {
             variant="primary" 
             className="flex items-center"
             onClick={() => setShowModelModal(true)}
+            disabled={!preparedDataId && activeTab === 'workflow'}
           >
             <Plus size={16} className="mr-1" />
             New Model
@@ -184,61 +315,83 @@ const MachineLearning: React.FC = () => {
             </div>
           )}
           
-          {/* Model Selection */}
-          <Card padding="none" className="p-3">
-            <div className="flex items-center">
-              <div className="mr-3">
-                <label htmlFor="model-select" className="block text-sm font-medium text-gray-700">
-                  Model:
-                </label>
-              </div>
-              <select 
-                id="model-select"
-                className="w-full max-w-xs p-2 text-sm border border-gray-300 rounded-md"
-                value={selectedModelId || ''}
-                onChange={(e) => {
-                  const id = parseInt(e.target.value);
-                  if (!isNaN(id)) {
-                    handleModelSelect(id);
-                  }
-                }}
-              >
-                <option value="">Select a model</option>
-                {models.map(model => (
-                  <option key={model.id} value={model.id}>
-                    {model.name} ({model.type} - {model.algorithm})
-                  </option>
-                ))}
-              </select>
-              
-              {selectedModel && (
-                <div className="ml-4 text-sm text-gray-500 flex items-center">
-                  Status: 
-                  <span className={`ml-1 px-2 py-0.5 text-xs rounded-full ${
-                    selectedModel.status === 'trained' ? 'bg-green-100 text-green-800' :
-                    selectedModel.status === 'failed' ? 'bg-red-100 text-red-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {selectedModel.status.charAt(0).toUpperCase() + selectedModel.status.slice(1)}
-                  </span>
-                </div>
-              )}
-            </div>
-          </Card>
-          
           {/* Module Tabs */}
           <Tabs
             items={[
+              { id: 'workflow', label: 'ML Workflow' },
               { id: 'models', label: 'Models' },
-              { id: 'training', label: 'Training & Validation' },
-              { id: 'evaluation', label: 'Model Evaluation' },
-              { id: 'interpretation', label: 'Interpretation' },
-              { id: 'predictions', label: 'Predictions' }
+              { id: 'interpretation', label: 'Interpretation' }
             ]}
             activeTab={activeTab}
             onChange={handleTabChange}
             variant="underline"
           />
+          
+          {/* ML Workflow Tab Content */}
+          {activeTab === 'workflow' && (
+            <>
+              {renderProgressIndicator()}
+              
+              {currentStep === 'data' && (
+                <DataSelectionPanel
+                  datasets={filteredDatasets}
+                  onDataSelected={handleDataSelected}
+                  isLoading={isLoading}
+                />
+              )}
+              
+              {currentStep === 'features' && selectedDataset && (
+                <FeatureEngineeringPanel
+                  selectedDataset={selectedDataset}
+                  networks={filteredNetworks}
+                  onFeaturesPrepared={handleFeaturesPrepared}
+                  onBack={handleBackToDataSelection}
+                  isLoading={isLoading}
+                />
+              )}
+              
+              {currentStep === 'model' && preparedDataId && (
+                <Card className="pb-6">
+                  <div className="flex items-center mb-4">
+                    <Layers className="mr-2 text-blue-600" size={24} />
+                    <Heading level={3}>Model Configuration</Heading>
+                  </div>
+                  
+                  <Text variant="p" className="mb-6 text-gray-600">
+                    Data preparation complete! Now you can create a model to train.
+                  </Text>
+                  
+                  {preparedDataInfo && (
+                    <div className="bg-green-50 p-4 rounded-md border border-green-200 mb-6">
+                      <div className="flex items-center mb-2">
+                        <CheckCircle className="text-green-500 mr-2" size={20} />
+                        <Text className="font-medium text-green-700">Data Successfully Prepared</Text>
+                      </div>
+                      <div className="text-sm text-green-600 ml-7">
+                        <p>Training samples: {preparedDataInfo.feature_info?.train_size}</p>
+                        <p>Testing samples: {preparedDataInfo.feature_info?.test_size}</p>
+                        <p>Features: {preparedDataInfo.feature_info?.transformed_feature_count || preparedDataInfo.feature_columns?.length}</p>
+                        {preparedDataInfo.feature_info?.network_metrics?.length > 0 && (
+                          <p>Network metrics included: {preparedDataInfo.feature_info.network_metrics.length}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="pt-4 flex justify-center">
+                    <Button
+                      variant="primary"
+                      onClick={() => setShowModelModal(true)}
+                      disabled={isLoading}
+                    >
+                      <Plus size={16} className="mr-1" />
+                      Create New Model
+                    </Button>
+                  </div>
+                </Card>
+              )}
+            </>
+          )}
           
           {/* Models Tab Content */}
           {activeTab === 'models' && (
@@ -261,7 +414,14 @@ const MachineLearning: React.FC = () => {
                       </Text>
                       <Button 
                         variant="primary" 
-                        onClick={() => setShowModelModal(true)}
+                        onClick={() => {
+                          if (preparedDataId) {
+                            setShowModelModal(true);
+                          } else {
+                            setActiveTab('workflow');
+                            setCurrentStep('data');
+                          }
+                        }}
                       >
                         <Plus size={16} className="mr-1" />
                         Create Model
@@ -388,7 +548,7 @@ const MachineLearning: React.FC = () => {
                       <div>
                         <Text variant="caption" className="text-gray-500 mb-1">Data Sources</Text>
                         <div className="space-y-1">
-                          {selectedModel.dataset_ids.length > 0 ? (
+                          {selectedModel.dataset_ids?.length > 0 ? (
                             selectedModel.dataset_ids.map(id => {
                               const dataset = datasets.find(d => d.id === id);
                               return (
@@ -420,7 +580,7 @@ const MachineLearning: React.FC = () => {
                             {getFormattedMetrics(selectedModel.metrics).map(metric => (
                               <div key={metric.name} className="bg-gray-50 p-2 rounded">
                                 <Text variant="caption" className="text-gray-500">{metric.label}</Text>
-                                <Text className="font-medium">{metric.value.toFixed(3)}</Text>
+                                <Text className="font-medium">{typeof metric.value === 'number' ? metric.value.toFixed(3) : metric.value}</Text>
                               </div>
                             ))}
                           </div>
@@ -431,7 +591,10 @@ const MachineLearning: React.FC = () => {
                         {selectedModel.status === 'created' && (
                           <Button
                             variant="primary"
-                            onClick={() => setActiveTab('training')}
+                            onClick={() => {
+                              setActiveTab('workflow');
+                              setCurrentStep('train');
+                            }}
                           >
                             <Play size={16} className="mr-1" />
                             Train Model
@@ -440,10 +603,10 @@ const MachineLearning: React.FC = () => {
                         {selectedModel.status === 'trained' && (
                           <Button
                             variant="primary"
-                            onClick={() => setActiveTab('predictions')}
+                            onClick={() => setActiveTab('interpretation')}
                           >
                             <TrendingUp size={16} className="mr-1" />
-                            Make Predictions
+                            View Insights
                           </Button>
                         )}
                       </div>
@@ -451,111 +614,6 @@ const MachineLearning: React.FC = () => {
                   )}
                 </Card>
               </div>
-            </div>
-          )}
-          
-          {/* Training Tab Content */}
-          {activeTab === 'training' && (
-            <div>
-              {!selectedModel ? (
-                <Card>
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Layers className="h-12 w-12 text-gray-300 mb-4" />
-                    <Heading level={4} className="mb-2 text-gray-700">No Model Selected</Heading>
-                    <Text variant="caption" className="text-gray-500 mb-6 max-w-md">
-                      Please select a model from the Models tab to train it.
-                    </Text>
-                    <Button 
-                      variant="primary" 
-                      onClick={() => setActiveTab('models')}
-                    >
-                      Go to Models
-                    </Button>
-                  </div>
-                </Card>
-              ) : selectedModel.status === 'trained' ? (
-                <Card>
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                      <AlertCircle size={32} className="text-green-500" />
-                    </div>
-                    <Heading level={4} className="mb-2 text-gray-700">Model Already Trained</Heading>
-                    <Text variant="caption" className="text-gray-500 mb-6 max-w-md">
-                      This model has already been trained. You can view the evaluation results or make predictions.
-                    </Text>
-                    <div className="flex space-x-4">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setActiveTab('evaluation')}
-                      >
-                        View Evaluation
-                      </Button>
-                      <Button 
-                        variant="primary" 
-                        onClick={() => setActiveTab('predictions')}
-                      >
-                        Make Predictions
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ) : (
-                <ModelTrainingForm 
-                  model={selectedModel}
-                  algorithms={algorithms}
-                  trainingOptions={trainingOptions}
-                  onUpdateOptions={handleUpdateTrainingOptions}
-                  onSubmit={handleTrainModel}
-                  isLoading={isLoading}
-                />
-              )}
-            </div>
-          )}
-          
-          {/* Evaluation Tab Content */}
-          {activeTab === 'evaluation' && (
-            <div>
-              {!selectedModel ? (
-                <Card>
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Layers className="h-12 w-12 text-gray-300 mb-4" />
-                    <Heading level={4} className="mb-2 text-gray-700">No Model Selected</Heading>
-                    <Text variant="caption" className="text-gray-500 mb-6 max-w-md">
-                      Please select a trained model to view its evaluation metrics.
-                    </Text>
-                    <Button 
-                      variant="primary" 
-                      onClick={() => setActiveTab('models')}
-                    >
-                      Go to Models
-                    </Button>
-                  </div>
-                </Card>
-              ) : selectedModel.status !== 'trained' ? (
-                <Card>
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mb-4">
-                      <AlertCircle size={32} className="text-yellow-500" />
-                    </div>
-                    <Heading level={4} className="mb-2 text-gray-700">Model Not Trained</Heading>
-                    <Text variant="caption" className="text-gray-500 mb-6 max-w-md">
-                      This model hasn't been trained yet. Please train the model to see evaluation metrics.
-                    </Text>
-                    <Button 
-                      variant="primary" 
-                      onClick={() => setActiveTab('training')}
-                    >
-                      Go to Training
-                    </Button>
-                  </div>
-                </Card>
-              ) : (
-                <ModelEvaluationPanel 
-                  model={selectedModel}
-                  featureImportance={featureImportance}
-                  isLoading={isLoading}
-                />
-              )}
             </div>
           )}
           
@@ -651,59 +709,6 @@ const MachineLearning: React.FC = () => {
               </div>
             </div>
           )}
-          
-          {/* Predictions Tab Content */}
-          {activeTab === 'predictions' && (
-            <Card>
-              <Heading level={3} className="mb-4">Make Predictions</Heading>
-              
-              {!selectedModel ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <Layers className="h-12 w-12 text-gray-300 mb-4" />
-                  <Heading level={4} className="mb-2 text-gray-700">No Model Selected</Heading>
-                  <Text variant="caption" className="text-gray-500 mb-6 max-w-md">
-                    Please select a trained model to make predictions.
-                  </Text>
-                  <Button 
-                    variant="primary" 
-                    onClick={() => setActiveTab('models')}
-                  >
-                    Go to Models
-                  </Button>
-                </div>
-              ) : selectedModel.status !== 'trained' ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mb-4">
-                    <AlertCircle size={32} className="text-yellow-500" />
-                  </div>
-                  <Heading level={4} className="mb-2 text-gray-700">Model Not Trained</Heading>
-                  <Text variant="caption" className="text-gray-500 mb-6 max-w-md">
-                    This model hasn't been trained yet. Please train the model before making predictions.
-                  </Text>
-                  <Button 
-                    variant="primary" 
-                    onClick={() => setActiveTab('training')}
-                  >
-                    Go to Training
-                  </Button>
-                </div>
-              ) : (
-                <div className="py-8 text-center">
-                  <Text variant="caption" className="text-gray-500 mb-6 max-w-md mx-auto">
-                    Prediction functionality is coming soon! This feature will allow you to make 
-                    predictions on new data or explore what-if scenarios.
-                  </Text>
-                  <Button 
-                    variant="primary" 
-                    disabled
-                  >
-                    <Sliders size={16} className="mr-1" />
-                    Enter Prediction Data
-                  </Button>
-                </div>
-              )}
-            </Card>
-          )}
         </>
       )}
       
@@ -715,6 +720,7 @@ const MachineLearning: React.FC = () => {
           datasets={datasets}
           networks={networks}
           algorithms={algorithms}
+          preparedDataId={preparedDataId}
         />
       )}
     </div>

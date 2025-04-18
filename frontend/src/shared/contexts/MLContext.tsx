@@ -1,13 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { MLModel, Algorithm, FeatureImportance, PredictionResult, TrainingOptions } from '../../types/ml';
+import { MLModel, Algorithm, FeatureImportance, PredictionResult, TrainingOptions, PreparedData } from '../../types/ml';
 import { mlService } from '../services';
 import { useAuthContext } from './AuthContext';
+
+interface PrepareDataOptions {
+  dataset_id: number;
+  target_column: string;
+  feature_columns?: string[];
+  network_metrics?: string[];
+  network_id?: number;
+  test_size?: number;
+}
 
 interface MLContextProps {
   models: MLModel[];
   selectedModel: MLModel | null;
   algorithms: Algorithm[];
   featureImportance: FeatureImportance | null;
+  preparedDataInfo: PreparedData | null;
   isLoading: boolean;
   error: string | null;
   fetchModels: (projectId?: number) => Promise<void>;
@@ -19,6 +29,7 @@ interface MLContextProps {
   fetchFeatureImportance: (id: number) => Promise<void>;
   predict: (id: number, inputData: any) => Promise<PredictionResult>;
   fetchAlgorithms: () => Promise<void>;
+  prepareData: (options: PrepareDataOptions) => Promise<PreparedData>;
 }
 
 const MLContext = createContext<MLContextProps | undefined>(undefined);
@@ -29,6 +40,7 @@ export const MLProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
   const [selectedModel, setSelectedModel] = useState<MLModel | null>(null);
   const [algorithms, setAlgorithms] = useState<Algorithm[]>([]);
   const [featureImportance, setFeatureImportance] = useState<FeatureImportance | null>(null);
+  const [preparedDataInfo, setPreparedDataInfo] = useState<PreparedData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -182,6 +194,23 @@ export const MLProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
     }
   }, []);
   
+  const prepareData = useCallback(async (options: PrepareDataOptions): Promise<PreparedData> => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await mlService.prepareData(options);
+      setPreparedDataInfo(result);
+      return result;
+    } catch (err) {
+      setError('Failed to prepare data');
+      console.error(err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+  
   // Load models and algorithms on mount
   useEffect(() => {
     if (isAuthenticated) {
@@ -193,6 +222,7 @@ export const MLProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       setSelectedModel(null);
       setAlgorithms([]);
       setFeatureImportance(null);
+      setPreparedDataInfo(null);
     }
   }, [fetchModels, fetchAlgorithms, isAuthenticated]);
   
@@ -203,6 +233,7 @@ export const MLProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
         selectedModel,
         algorithms,
         featureImportance,
+        preparedDataInfo,
         isLoading,
         error,
         fetchModels,
@@ -213,7 +244,8 @@ export const MLProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
         trainModel,
         fetchFeatureImportance,
         predict,
-        fetchAlgorithms
+        fetchAlgorithms,
+        prepareData
       }}
     >
       {children}

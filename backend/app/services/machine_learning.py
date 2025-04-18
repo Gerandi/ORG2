@@ -68,6 +68,12 @@ class MachineLearningService:
             Dictionary containing prepared X_train, X_test, y_train, y_test, and feature info
         """
         from app.services.data_service import DataService
+        from app.services.network_analysis import NetworkAnalysisService
+        import os
+        from sklearn.preprocessing import StandardScaler, OneHotEncoder
+        from sklearn.compose import ColumnTransformer
+        from sklearn.impute import SimpleImputer
+        from sklearn.pipeline import Pipeline
         
         # Get dataset
         dataset = await DataService.get_dataset(db, dataset_id)
@@ -81,6 +87,7 @@ class MachineLearningService:
             
         # Load the dataset
         try:
+            # Load dataset based on file extension
             if file_path.endswith(".csv"):
                 df = pd.read_csv(file_path)
             elif file_path.endswith((".xlsx", ".xls")):
@@ -107,113 +114,200 @@ class MachineLearningService:
                 missing_cols = [col for col in feature_columns if col not in df.columns]
                 if missing_cols:
                     raise HTTPException(status_code=400, detail=f"Feature columns not found: {', '.join(missing_cols)}")
-                    
+            
             # Get network metrics if requested
-            network_features_df = None
             if network_id and network_metrics:
-                # This would normally fetch from the database
-                # For now, we'll load from file if available
                 try:
-                    # This is a placeholder - in a real implementation, this would:
-                    # 1. Load the network
-                    # 2. Calculate the metrics
-                    # 3. Join with the original dataframe by node ID
+                    # Get the network from the database
+                    network = await DataService.get_network(db, network_id)
+                    if not network:
+                        raise HTTPException(status_code=404, detail="Network not found")
                     
-                    # Assuming df has an 'id' column that matches network node IDs
+                    # Load network from file
+                    network_path = network.file_path
+                    if not os.path.exists(network_path):
+                        raise HTTPException(status_code=400, detail="Network file not found")
+                    
+                    # Load network graph
+                    with open(network_path, 'r') as f:
+                        network_data = json.load(f)
+                    
+                    # Create graph object
+                    G = NetworkAnalysisService.create_network_from_data(
+                        network_data, 
+                        directed=network.is_directed,
+                        weighted=network.is_weighted
+                    )
+                    
+                    # Calculate network metrics
+                    metrics = NetworkAnalysisService.calculate_network_metrics(G)
+                    
+                    # Extract node metrics
+                    node_metrics = metrics["node_metrics"]
+                    
+                    # Filter for requested metrics only
+                    filtered_node_metrics = {}
+                    for metric_name in network_metrics:
+                        if metric_name in node_metrics:
+                            filtered_node_metrics[f"network_{metric_name}"] = node_metrics[metric_name]
+                    
+                    # Convert node metrics to DataFrame
+                    node_metrics_data = []
+                    for node_id in G.nodes():
+                        node_row = {"id": str(node_id)}
+                        for metric_name, metric_values in filtered_node_metrics.items():
+                            if str(node_id) in metric_values:
+                                node_row[metric_name] = metric_values[str(node_id)]
+                        node_metrics_data.append(node_row)
+                    
+                    network_features_df = pd.DataFrame(node_metrics_data)
+                    
+                    # Ensure node IDs in the dataset match those in the network
+                    # First, check if there's a common identifier column
                     if 'id' not in df.columns:
-                        raise HTTPException(status_code=400, detail="Dataset must have 'id' column to join with network data")
-                        
-                    # For this simplified implementation, we'll create mock network features
-                    # In a real implementation, this would retrieve actual network metrics
-                    unique_ids = df['id'].unique()
+                        raise HTTPException(
+                            status_code=400, 
+                            detail="Dataset must have 'id' column to join with network data"
+                        )
                     
-                    # Create mock network metrics dataframe
-                    mock_metrics = {}
-                    for metric in network_metrics:
-                        # Generate random values as placeholders
-                        mock_metrics[f"network_{metric}"] = {str(id_val): np.random.random() for id_val in unique_ids}
-                        
-                    # Convert to dataframe
-                    network_features = []
-                    for id_val in unique_ids:
-                        row = {'id': id_val}
-                        for metric in network_metrics:
-                            row[f"network_{metric}"] = mock_metrics[f"network_{metric}"][str(id_val)]
-                        network_features.append(row)
-                        
-                    network_features_df = pd.DataFrame(network_features)
+                    # Convert ID columns to string for reliable joining
+                    df['id'] = df['id'].astype(str)
+                    network_features_df['id'] = network_features_df['id'].astype(str)
                     
                     # Join with main dataframe
                     df = pd.merge(df, network_features_df, on='id', how='inner')
                     
+                    # Check if merge produced results
+                    if len(df) == 0:
+                        raise HTTPException(
+                            status_code=400, 
+                            detail="No matching IDs found between dataset and network"
+                        )
+                    
                     # Add network metrics to feature columns
-                    for metric in network_metrics:
-                        feature_columns.append(f"network_{metric}")
-                        
+                    network_feature_columns = [col for col in network_features_df.columns if col != 'id']
+                    feature_columns.extend(network_feature_columns)
+                    
                 except Exception as e:
                     logger.error(f"Error incorporating network metrics: {e}")
                     raise HTTPException(status_code=500, detail=f"Error incorporating network metrics: {str(e)}")
-                
+            
             # Extract features and target
             X = df[feature_columns]
             y = df[target_column]
             
-            # Identify column types
-            num_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
-            cat_cols = X.select_dtypes(include=['object', 'category', 'bool']).columns.tolist()
+            # Identify column types for preprocessing
+            numeric_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
+            categorical_cols = X.select_dtypes(include=['object', 'category', 'bool']).columns.tolist()
+            
+            # Create preprocessing pipeline
+            preprocessor = ColumnTransformer(
+                transformers=[
+                    ('num', Pipeline(steps=[
+                        ('imputer', SimpleImputer(strategy='median')),
+                        ('scaler', StandardScaler())
+                    ]), numeric_cols),
+                    ('cat', Pipeline(steps=[
+                        ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+                        ('onehot', OneHotEncoder(handle_unknown='ignore'))
+                    ]), categorical_cols)
+                ],
+                remainder='drop'
+            )
+            
+            # Fit preprocessor to get feature names
+            preprocessor.fit(X)
+            
+            # Get the feature names after one-hot encoding
+            transformed_feature_names = []
+            
+            # For numeric features, names remain the same
+            for col in numeric_cols:
+                transformed_feature_names.append(col)
+            
+            # For categorical features, get encoded feature names
+            if categorical_cols:
+                cat_encoder = preprocessor.transformers_[1][1].named_steps['onehot']
+                if hasattr(cat_encoder, 'get_feature_names_out'):
+                    # For newer scikit-learn versions
+                    encoded_names = cat_encoder.get_feature_names_out(categorical_cols)
+                    transformed_feature_names.extend(encoded_names)
+                else:
+                    # Fallback for older scikit-learn versions
+                    for col in categorical_cols:
+                        unique_values = X[col].dropna().unique()
+                        for val in unique_values:
+                            transformed_feature_names.append(f"{col}_{val}")
             
             # Split data
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=test_size, random_state=random_state
             )
             
+            # Apply preprocessing to the splits
+            X_train_processed = preprocessor.transform(X_train)
+            X_test_processed = preprocessor.transform(X_test)
+            
+            # Create a unique folder for this prepared data
+            prepared_data_dir = "prepared_data"
+            os.makedirs(prepared_data_dir, exist_ok=True)
+            
+            prepared_data_id = f"{dataset_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            prepared_data_path = os.path.join(prepared_data_dir, prepared_data_id)
+            os.makedirs(prepared_data_path, exist_ok=True)
+            
+            # Save the prepared data
+            joblib.dump(X_train_processed, os.path.join(prepared_data_path, "X_train.joblib"))
+            joblib.dump(X_test_processed, os.path.join(prepared_data_path, "X_test.joblib"))
+            joblib.dump(y_train, os.path.join(prepared_data_path, "y_train.joblib"))
+            joblib.dump(y_test, os.path.join(prepared_data_path, "y_test.joblib"))
+            joblib.dump(preprocessor, os.path.join(prepared_data_path, "preprocessor.joblib"))
+            
+            # Save feature names as JSON for later use
+            with open(os.path.join(prepared_data_path, "feature_names.json"), 'w') as f:
+                json.dump({
+                    "original_features": feature_columns,
+                    "transformed_features": transformed_feature_names,
+                    "numeric_features": numeric_cols,
+                    "categorical_features": categorical_cols,
+                    "network_metrics": network_metrics if network_metrics else []
+                }, f)
+            
             # Feature engineering report
             feature_info = {
-                "numeric_features": num_cols,
-                "categorical_features": cat_cols,
+                "numeric_features": numeric_cols,
+                "categorical_features": categorical_cols,
+                "network_metrics": network_metrics if network_metrics else [],
                 "target_column": target_column,
                 "target_type": str(y.dtype),
                 "is_classification": y.dtype == 'object' or y.dtype == 'bool' or (y.dtype == 'int64' and y.nunique() < 10),
                 "train_size": len(X_train),
                 "test_size": len(X_test),
                 "class_distribution": y.value_counts().to_dict() if y.dtype == 'object' or y.dtype == 'bool' or (y.dtype == 'int64' and y.nunique() < 10) else None,
-                "network_metrics_included": network_metrics if network_metrics else []
+                "transformed_feature_count": X_train_processed.shape[1]
             }
             
-            # Remove non-numeric columns from network_features_df for correlation calculation
-            if network_features_df is not None:
-                network_features_num = network_features_df.select_dtypes(include=['int64', 'float64'])
-                if not network_features_num.empty:
-                    # Calculate correlation of network features with target (if numeric)
-                    if y.dtype == 'float64' or y.dtype == 'int64':
-                        # Join with target for correlation
-                        corr_df = pd.merge(network_features_df, df[[target_column]], on='id', how='inner')
-                        
-                        # Calculate correlations
-                        network_correlations = {}
-                        for col in network_features_num.columns:
-                            if col != 'id':
-                                correlation = corr_df[col].corr(corr_df[target_column])
-                                network_correlations[col] = correlation
-                                
-                        feature_info["network_feature_correlations"] = network_correlations
+            # If network metrics included, calculate their correlation with target if possible
+            if network_id and network_metrics and (y.dtype == 'float64' or y.dtype == 'int64'):
+                network_feature_correlations = {}
+                for metric in network_metrics:
+                    metric_col = f"network_{metric}"
+                    if metric_col in df.columns:
+                        correlation = df[metric_col].corr(df[target_column])
+                        network_feature_correlations[metric_col] = correlation
+                    
+                feature_info["network_feature_correlations"] = network_feature_correlations
             
-            # Convert X_train, X_test to JSON serializable format
-            X_train_dict = X_train.to_dict(orient='records')
-            X_test_dict = X_test.to_dict(orient='records')
-            
-            # Convert y_train, y_test to lists
-            y_train_list = y_train.tolist()
-            y_test_list = y_test.tolist()
-            
+            # Final result with file path and feature info
             result = {
-                "X_train": X_train_dict,
-                "X_test": X_test_dict,
-                "y_train": y_train_list,
-                "y_test": y_test_list,
+                "file_path": prepared_data_path,
                 "feature_info": feature_info,
+                "dataset_id": dataset_id,
+                "network_id": network_id,
                 "feature_columns": feature_columns,
-                "dataset_id": dataset_id
+                "transformed_feature_names": transformed_feature_names,
+                "train_shape": X_train_processed.shape,
+                "test_shape": X_test_processed.shape
             }
             
             return result
