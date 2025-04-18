@@ -1,12 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Project } from '../../../types/project';
 import { useProjectContext } from '../../../shared/contexts/ProjectContext';
 
-interface ProjectSelectorProps {
-  onProjectChange?: (projectId: number | null) => void;
-}
-
-const ProjectSelector: React.FC<ProjectSelectorProps> = ({ onProjectChange }) => {
+const ProjectSelector: React.FC = () => {
   const { projects, selectedProject, selectProject } = useProjectContext();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -15,11 +11,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ onProjectChange }) =>
       await selectProject(project.id);
     } else {
       // Handle "All Projects" selection
-      // We'll set selectedProject to null but still pass this to consumers
-    }
-    
-    if (onProjectChange) {
-      onProjectChange(project?.id || null);
+      await selectProject(null);
     }
     
     setIsOpen(false);

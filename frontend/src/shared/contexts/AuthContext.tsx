@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, LoginCredentials, RegisterData } from '../../types/auth';
 import { authService } from '../services';
+import { useProjectContext } from './ProjectContext';
 
 interface AuthContextProps {
   user: User | null;
@@ -21,6 +22,15 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // We need to use this pattern because useProjectContext depends on AuthContext
+  // so we can't directly use it in the AuthProvider component (would create circular dependency)
+  const projectContextRef = React.useRef<{clearSelectedProject?: () => void}>({});
+  
+  // This function will be called by the ProjectProvider to register its clearSelectedProject function
+  const registerProjectContext = useCallback((clearFn: () => void) => {
+    projectContextRef.current.clearSelectedProject = clearFn;
+  }, []);
   
   const login = useCallback(async (credentials: { email: string; password: string }): Promise<void> => {
     setIsLoading(true);
@@ -105,6 +115,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   
   const logout = useCallback(async (allDevices: boolean = false): Promise<void> => {
     try {
+      // Clear selected project first
+      if (projectContextRef.current.clearSelectedProject) {
+        projectContextRef.current.clearSelectedProject();
+      }
+      
       await authService.logout(allDevices);
       setUser(null);
       setIsAuthenticated(false);
@@ -217,7 +232,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         register,
         logout,
         updateProfile,
-        checkAuth
+        checkAuth,
+        registerProjectContext
       }}
     >
       {children}
@@ -233,6 +249,12 @@ export const useAuthContext = (): AuthContextProps => {
   }
   
   return context;
+};
+
+// Export a function to register the project context
+export const useRegisterProjectContext = () => {
+  const { registerProjectContext } = useContext(AuthContext) as any;
+  return registerProjectContext;
 };
 
 export default AuthContext;

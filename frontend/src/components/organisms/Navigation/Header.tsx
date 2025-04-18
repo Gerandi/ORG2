@@ -7,13 +7,11 @@ import { useUIContext } from '../../../shared/contexts/UIContext';
 
 export interface HeaderProps {
   title: string;
-  onProjectChange?: (projectId: number | null) => void;
   className?: string;
 }
 
 const Header: React.FC<HeaderProps> = ({
   title,
-  onProjectChange,
   className = '',
 }) => {
   const { openCreateProjectModal } = useUIContext();
@@ -30,7 +28,7 @@ const Header: React.FC<HeaderProps> = ({
     <header className={`bg-white shadow-sm px-6 py-3 flex items-center justify-between ${className}`}>
       <div className="flex items-center">
         <h2 className="text-lg font-medium">{title}</h2>
-        <ProjectSelector onProjectChange={onProjectChange} />
+        <ProjectSelector />
       </div>
       
       <div className="flex items-center space-x-4">

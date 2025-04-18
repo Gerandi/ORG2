@@ -50,6 +50,15 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [error, setError] = useState<string | null>(null);
   
   const fetchDatasets = useCallback(async (projectId?: number): Promise<void> => {
+    // If no project is selected, clear datasets and return
+    if (projectId === undefined) {
+      setDatasets([]);
+      setSelectedDataset(null);
+      setDataPreview(null);
+      setDataStats(null);
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     

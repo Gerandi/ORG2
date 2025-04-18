@@ -66,6 +66,17 @@ export const NetworkProvider: React.FC<{children: React.ReactNode}> = ({ childre
   const [error, setError] = useState<string | null>(null);
   
   const fetchNetworks = useCallback(async (projectId?: number): Promise<void> => {
+    // If no project is selected, clear networks and return
+    if (projectId === undefined) {
+      setNetworks([]);
+      setSelectedNetwork(null);
+      setNetworkData(null);
+      setNetworkMetrics(null);
+      setCommunities(null);
+      setPredictedLinks(null);
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     

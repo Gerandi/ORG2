@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Project } from '../../types/project';
 import projectsService from '../services/projectsService';
-import { useAuthContext } from './AuthContext';
+import { useAuthContext, useRegisterProjectContext } from './AuthContext';
+import useLocalStorage from '../hooks/useLocalStorage';
 
 interface ProjectContextProps {
   projects: Project[];
@@ -9,7 +10,8 @@ interface ProjectContextProps {
   isLoading: boolean;
   error: string | null;
   fetchProjects: () => Promise<void>;
-  selectProject: (id: number) => Promise<void>;
+  selectProject: (id: number | null) => Promise<void>;
+  clearSelectedProject: () => void;
   createProject: (project: Omit<Project, 'id' | 'created_at' | 'updated_at' | 'status'>) => Promise<void>;
   updateProject: (id: number, project: Partial<Project>) => Promise<void>;
   deleteProject: (id: number) => Promise<void>;
@@ -19,7 +21,10 @@ const ProjectContext = createContext<ProjectContextProps | undefined>(undefined)
 
 export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const { isAuthenticated } = useAuthContext();
+  const registerProjectContext = useRegisterProjectContext();
+  
   const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useLocalStorage<number | null>('selectedProjectId', null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,13 +44,21 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     }
   }, []);
   
-  const selectProject = async (id: number): Promise<void> => {
+  const selectProject = async (id: number | null): Promise<void> => {
+    // If id is null, clear the selection
+    if (id === null) {
+      setSelectedProjectId(null);
+      setSelectedProject(null);
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     
     try {
       const project = await projectsService.getProject(id);
       setSelectedProject(project);
+      setSelectedProjectId(id);
     } catch (err) {
       setError('Failed to fetch project details');
       console.error(err);
@@ -53,6 +66,11 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
       setIsLoading(false);
     }
   };
+
+  const clearSelectedProject = useCallback(() => {
+    setSelectedProjectId(null);
+    setSelectedProject(null);
+  }, [setSelectedProjectId]);
   
   const createProject = async (project: Omit<Project, 'id' | 'created_at' | 'updated_at' | 'status'>): Promise<void> => {
     setIsLoading(true);
@@ -97,7 +115,7 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
       setProjects(projects.filter(p => p.id !== id));
       
       if (selectedProject?.id === id) {
-        setSelectedProject(null);
+        clearSelectedProject();
       }
     } catch (err) {
       setError('Failed to delete project');
@@ -106,6 +124,15 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
       setIsLoading(false);
     }
   };
+  
+  // Load project details from localStorage on mount
+  useEffect(() => {
+    if (isAuthenticated && selectedProjectId && !selectedProject && !isLoading) {
+      selectProject(selectedProjectId);
+    } else if (!selectedProjectId && selectedProject) {
+      setSelectedProject(null);
+    }
+  }, [selectedProjectId, isAuthenticated, selectedProject, isLoading]);
   
   useEffect(() => {
     if (isAuthenticated) {
@@ -116,6 +143,12 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
       setSelectedProject(null);
     }
   }, [fetchProjects, isAuthenticated]);
+
+  useEffect(() => {
+    if (registerProjectContext) {
+      registerProjectContext(clearSelectedProject);
+    }
+  }, [registerProjectContext, clearSelectedProject]);
   
   return (
     <ProjectContext.Provider
@@ -126,6 +159,7 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
         error,
         fetchProjects,
         selectProject,
+        clearSelectedProject,
         createProject,
         updateProject,
         deleteProject,

@@ -60,6 +60,13 @@ export const ABMProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [error, setError] = useState<string | null>(null);
   
   const fetchModels = useCallback(async (projectId?: number): Promise<void> => {
+    // If no project is selected, clear models and return
+    if (projectId === undefined) {
+      setModels([]);
+      setSelectedModel(null);
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     
@@ -143,6 +150,14 @@ export const ABMProvider: React.FC<{children: React.ReactNode}> = ({ children })
   }, [selectedModel?.id]);
   
   const fetchSimulations = useCallback(async (projectId?: number): Promise<void> => {
+    // If no project is selected, clear simulations and return
+    if (projectId === undefined) {
+      setSimulations([]);
+      setSelectedSimulation(null);
+      setSimulationResults(null);
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     

@@ -1,10 +1,6 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar, Header } from '../components/organisms/Navigation';
-import { useDataContext } from '../shared/contexts/DataContext';
-import { useNetworkContext } from '../shared/contexts/NetworkContext';
-import { useMLContext } from '../shared/contexts/MLContext';
-import { useABMContext } from '../shared/contexts/ABMContext';
 import { useUIContext } from '../shared/contexts/UIContext';
 import ProjectCreationModal from '../components/organisms/ProjectModals/ProjectCreationModal';
 import { useProjectContext } from '../shared/contexts/ProjectContext';
@@ -30,24 +26,7 @@ const MainLayout: React.FC = () => {
   const title = getTitleFromPath(location.pathname);
   const { isCreateProjectModalOpen, closeCreateProjectModal } = useUIContext();
   const { fetchProjects } = useProjectContext();
-  
-  // Get contexts to handle project filtering
-  const { fetchDatasets } = useDataContext();
-  const { fetchNetworks } = useNetworkContext();
-  const { fetchModels: fetchMLModels } = useMLContext();
-  const { fetchModels: fetchABMModels, fetchSimulations } = useABMContext();
-  
-  const handleProjectChange = useCallback(async (projectId: number | null) => {
-    // When project changes, refresh data from all contexts with the new project filter
-    await Promise.all([
-      fetchDatasets(projectId || undefined),
-      fetchNetworks(projectId || undefined),
-      fetchMLModels(projectId || undefined),
-      fetchABMModels(projectId || undefined),
-      fetchSimulations(projectId || undefined)
-    ]);
-  }, [fetchDatasets, fetchNetworks, fetchMLModels, fetchABMModels, fetchSimulations]);
-  
+
   return (
     <div className="flex h-screen w-full bg-gray-50">
       {/* Sidebar */}
@@ -58,7 +37,6 @@ const MainLayout: React.FC = () => {
         {/* Header */}
         <Header 
           title={title}
-          onProjectChange={handleProjectChange}
         />
         
         {/* Main Content Area */}
