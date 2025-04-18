@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Sliders, Filter, LayoutGrid } from 'lucide-react';
-import { VisualizationOptions, LayoutOptions } from '../../types/network';
-import { Heading, Text } from '../atoms/Typography';
-import Input from '../atoms/Input';
-import Select from '../atoms/Select';
-import Card from '../atoms/Card';
+import { VisualizationOptions, LayoutOptions } from '../../../types/network';
+import { Heading, Text } from '../../atoms/Typography';
+import Input from '../../atoms/Input';
+import Select from '../../atoms/Select';
+import Card from '../../atoms/Card';
 
 interface NetworkControlsProps {
   visualizationOptions: VisualizationOptions;

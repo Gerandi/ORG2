@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Network } from 'lucide-react';
-import { Heading, Text } from '../atoms/Typography';
-import Button from '../atoms/Button';
-import Input from '../atoms/Input';
-import Select from '../atoms/Select';
-import { Dataset } from '../../types/data';
-import { useDataContext } from '../../shared/contexts';
+import { Heading, Text } from '../../atoms/Typography';
+import Button from '../../atoms/Button';
+import Input from '../../atoms/Input';
+import Select from '../../atoms/Select';
+import { Dataset } from '../../../types/data';
+import { useDataContext } from '../../../shared/contexts';
 
 interface NetworkCreationModalProps {
   onClose: () => void;

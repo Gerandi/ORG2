@@ -5,12 +5,12 @@ import Card from '../components/atoms/Card';
 import Button from '../components/atoms/Button';
 import Tabs from '../components/molecules/Tabs';
 import { useNetworkContext, useProjectContext } from '../shared/contexts';
-import NetworkGraph from '../components/organisms/NetworkGraph';
-import NetworkControls from '../components/organisms/NetworkControls';
-import NetworkMetricsPanel from '../components/organisms/NetworkMetricsPanel';
-import NetworkToolbar from '../components/organisms/NetworkToolbar';
-import NetworkLegend from '../components/organisms/NetworkLegend';
-import NetworkCreationModal from '../components/organisms/NetworkCreationModal';
+import NetworkGraph from '../components/organisms/sna/NetworkGraph';
+import NetworkControls from '../components/organisms/sna/NetworkControls';
+import NetworkMetricsPanel from '../components/organisms/sna/NetworkMetricsPanel';
+import NetworkToolbar from '../components/organisms/sna/NetworkToolbar';
+import NetworkLegend from '../components/organisms/sna/NetworkLegend';
+import NetworkCreationModal from '../components/organisms/sna/NetworkCreationModal';
 import { Node, NetworkModel } from '../types/network';
 import * as d3 from 'd3';
 

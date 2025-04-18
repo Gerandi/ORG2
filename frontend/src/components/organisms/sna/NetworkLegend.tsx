@@ -1,7 +1,7 @@
 import React from 'react';
-import { VisualizationOptions } from '../../types/network';
-import Card from '../atoms/Card';
-import { Text } from '../atoms/Typography';
+import { VisualizationOptions } from '../../../types/network';
+import Card from '../../atoms/Card';
+import { Text } from '../../atoms/Typography';
 
 interface NetworkLegendProps {
   visualizationOptions: VisualizationOptions;

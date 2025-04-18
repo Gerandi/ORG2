@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import Modal from '../molecules/Modal';
-import { Heading, Text } from '../atoms/Typography';
-import Button from '../atoms/Button';
-import Input from '../atoms/Input';
-import Select from '../atoms/Select';
-import Textarea from '../atoms/Textarea';
-import { MLModel, Algorithm } from '../../types/ml';
-import { Dataset } from '../../types/data';
-import { Network } from '../../types/network';
+import Modal from '../../molecules/Modal';
+import { Heading, Text } from '../../atoms/Typography';
+import Button from '../../atoms/Button';
+import Input from '../../atoms/Input';
+import Select from '../../atoms/Select';
+import Textarea from '../../atoms/Textarea';
+import { MLModel, Algorithm } from '../../../types/ml';
+import { Dataset } from '../../../types/data';
+import { Network } from '../../../types/network';
 
-interface ModelCreationModalProps {
+interface MLModelCreationModalProps {
   onClose: () => void;
   onCreateModel: (model: Partial<MLModel>) => Promise<void>;
   datasets: Dataset[];
@@ -17,7 +17,7 @@ interface ModelCreationModalProps {
   algorithms: Algorithm[];
 }
 
-const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
+const MLModelCreationModal: React.FC<MLModelCreationModalProps> = ({
   onClose,
   onCreateModel,
   datasets,
@@ -284,4 +284,4 @@ const ModelCreationModal: React.FC<ModelCreationModalProps> = ({
   );
 };
 
-export default ModelCreationModal;
+export default MLModelCreationModal;

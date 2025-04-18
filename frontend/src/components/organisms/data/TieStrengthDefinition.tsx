@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Dataset, TieStrengthDefinition, TieStrengthCalculationMethod } from '../../types/data';
-import { useDataContext } from '../../shared/contexts';
-import Card from '../atoms/Card';
-import { Heading, Text } from '../atoms/Typography';
-import Button from '../atoms/Button';
-import Select from '../atoms/Select';
-import Input from '../atoms/Input';
-import Checkbox from '../atoms/Checkbox';
+import { useDataContext } from '../../../shared/contexts';
+import Card from '../../atoms/Card';
+import { Heading, Text } from '../../atoms/Typography';
+import Button from '../../atoms/Button';
+import Select from '../../atoms/Select';
+import Input from '../../atoms/Input';
+import Checkbox from '../../atoms/Checkbox';
 import { Link } from 'lucide-react';
 
 interface TieStrengthDefinitionProps {

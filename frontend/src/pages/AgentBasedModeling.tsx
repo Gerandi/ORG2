@@ -15,7 +15,7 @@ import SimulationControlPanel from '../components/organisms/abm/SimulationContro
 import SimulationVisualization from '../components/organisms/abm/SimulationVisualization';
 import ResultsAnalysisPanel from '../components/organisms/abm/ResultsAnalysisPanel';
 import ModelValidationPanel from '../components/organisms/abm/ModelValidationPanel';
-import ModelCreationModal from '../components/organisms/abm/ModelCreationModal';
+import ABMModelCreationModal from '../components/organisms/abm/ABMModelCreationModal';
 import { ABMModel, Simulation } from '../types/abm';
 
 const AgentBasedModeling: React.FC = () => {
@@ -382,7 +382,7 @@ const AgentBasedModeling: React.FC = () => {
           
           {/* Model Creation Modal */}
           {showModelModal && (
-            <ModelCreationModal
+            <ABMModelCreationModal
               onClose={() => setShowModelModal(false)}
               onCreateModel={handleCreateModel}
               networks={networks}

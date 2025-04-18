@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Heading, Text } from '../atoms/Typography';
-import Button from '../atoms/Button';
-import Tabs from '../molecules/Tabs';
-import FileUploader from '../molecules/FileUploader';
-import Input from '../atoms/Input';
-import { useDataContext, useProjectContext } from '../../shared/contexts';
-import Select, { SelectOption } from '../atoms/Select/Select';
+import { Heading, Text } from '../../atoms/Typography';
+import Button from '../../atoms/Button';
+import Tabs from '../../molecules/Tabs';
+import FileUploader from '../../molecules/FileUploader';
+import Input from '../../atoms/Input';
+import { useDataContext, useProjectContext } from '../../../shared/contexts';
+import Select, { SelectOption } from '../../atoms/Select/Select';
 
 interface DataUploadModalProps {
   onClose: () => void;

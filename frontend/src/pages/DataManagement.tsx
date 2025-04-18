@@ -5,11 +5,11 @@ import Card from '../components/atoms/Card';
 import Button from '../components/atoms/Button';
 import Input from '../components/atoms/Input';
 import Tabs from '../components/molecules/Tabs';
-import DataUploadModal from '../components/organisms/DataUploadModal';
-import DatasetPreview from '../components/organisms/DatasetPreview';
-import DataProcessingForm from '../components/organisms/DataProcessingForm';
-import AnonymizationForm from '../components/organisms/AnonymizationForm';
-import TieStrengthDefinitionForm from '../components/organisms/TieStrengthDefinition';
+import DataUploadModal from '../components/organisms/data/DataUploadModal';
+import DatasetPreview from '../components/organisms/data/DatasetPreview';
+import DataProcessingForm from '../components/organisms/data/DataProcessingForm';
+import AnonymizationForm from '../components/organisms/data/AnonymizationForm';
+import TieStrengthDefinitionForm from '../components/organisms/data/TieStrengthDefinition';
 import { useDataContext } from '../shared/contexts/DataContext';
 import { useProjectContext } from '../shared/contexts/ProjectContext';
 

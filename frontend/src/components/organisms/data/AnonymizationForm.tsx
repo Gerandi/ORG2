@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldIcon, AlertCircle } from 'lucide-react';
-import Card from '../atoms/Card';
-import { Heading, Text } from '../atoms/Typography';
-import Button from '../atoms/Button';
-import Select from '../atoms/Select';
-import Input from '../atoms/Input';
-import { AnonymizationOptions } from '../../types/data';
+import Card from '../../atoms/Card';
+import { Heading, Text } from '../../atoms/Typography';
+import Button from '../../atoms/Button';
+import Select from '../../atoms/Select';
+import Input from '../../atoms/Input';
+import { AnonymizationOptions } from '../../../types/data';
 
 interface AnonymizationFormProps {
   datasetId: number;

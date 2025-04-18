@@ -1,10 +1,10 @@
 import React from 'react';
 import { BarChart2, User, Network, RefreshCw } from 'lucide-react';
-import { Node, NetworkModel, NetworkMetrics, Communities } from '../../types/network';
-import { Heading, Text } from '../atoms/Typography';
-import Card from '../atoms/Card';
-import Button from '../atoms/Button';
-import { useNetworkContext } from '../../shared/contexts';
+import { Node, NetworkModel, NetworkMetrics, Communities } from '../../../types/network';
+import { Heading, Text } from '../../atoms/Typography';
+import Card from '../../atoms/Card';
+import Button from '../../atoms/Button';
+import { useNetworkContext } from '../../../shared/contexts';
 
 interface NetworkMetricsPanelProps {
   network: NetworkModel | null;

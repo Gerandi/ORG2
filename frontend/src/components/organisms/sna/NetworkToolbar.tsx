@@ -1,7 +1,7 @@
 import React from 'react';
 import { ZoomIn, ZoomOut, RotateCcw, Download, Share2, Settings, BarChart2, Search } from 'lucide-react';
-import Button from '../atoms/Button';
-import Input from '../atoms/Input';
+import Button from '../../atoms/Button';
+import Input from '../../atoms/Input';
 
 interface NetworkToolbarProps {
   onZoomIn: () => void;

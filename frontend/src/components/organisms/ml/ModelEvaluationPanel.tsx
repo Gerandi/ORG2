@@ -1,7 +1,7 @@
 import React from 'react';
-import { MLModel, FeatureImportance } from '../../types/ml';
-import Card from '../atoms/Card';
-import { Heading, Text } from '../atoms/Typography';
+import { MLModel, FeatureImportance } from '../../../types/ml';
+import Card from '../../atoms/Card';
+import { Heading, Text } from '../../atoms/Typography';
 import FeatureImportanceChart from './FeatureImportanceChart';
 import { BarChart, TrendingUp, CheckCircle, AlertTriangle, X, Info } from 'lucide-react';
 

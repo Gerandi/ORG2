@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
-import { Node, Edge, VisualizationOptions } from '../../types/network';
-import { useNetworkContext } from '../../shared/contexts';
+import { Node, Edge, VisualizationOptions } from '../../../types/network';
+import { useNetworkContext } from '../../../shared/contexts';
 
 // Define a simulation node type that extends the basic Node type with position data
 interface SimulationNode extends Node, d3.SimulationNodeDatum {

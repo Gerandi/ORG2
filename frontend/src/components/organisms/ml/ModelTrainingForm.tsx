@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { MLModel, Algorithm, TrainingOptions } from '../../types/ml';
-import Card from '../atoms/Card';
-import { Heading, Text } from '../atoms/Typography';
-import Button from '../atoms/Button';
-import Input from '../atoms/Input';
-import Select from '../atoms/Select';
-import Checkbox from '../atoms/Checkbox';
+import { MLModel, Algorithm, TrainingOptions } from '../../../types/ml';
+import Card from '../../atoms/Card';
+import { Heading, Text } from '../../atoms/Typography';
+import Button from '../../atoms/Button';
+import Input from '../../atoms/Input';
+import Select from '../../atoms/Select';
+import Checkbox from '../../atoms/Checkbox';
 import { Settings, Play, BarChart, Database, Sliders } from 'lucide-react';
 
 interface ModelTrainingFormProps {

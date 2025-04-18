@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, BarChart, Download, Info, ExternalLink } from 'lucide-react';
-import Card from '../atoms/Card';
-import { Heading, Text } from '../atoms/Typography';
-import Button from '../atoms/Button';
-import { useDataContext } from '../../shared/contexts';
-import Tabs from '../molecules/Tabs';
+import Card from '../../atoms/Card';
+import { Heading, Text } from '../../atoms/Typography';
+import Button from '../../atoms/Button';
+import { useDataContext } from '../../../shared/contexts';
+import Tabs from '../../molecules/Tabs';
 
 interface DatasetPreviewProps {
   datasetId: number;

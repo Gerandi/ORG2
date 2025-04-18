@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Feature } from '../../types/ml';
+import { Feature } from '../../../types/ml';
 import * as d3 from 'd3';
-import { Text } from '../atoms/Typography';
+import { Text } from '../../atoms/Typography';
 
 interface FeatureImportanceChartProps {
   features: Feature[];

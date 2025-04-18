@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { CogIcon, PlusCircle, MinusCircle, CornerDownLeft } from 'lucide-react';
-import Card from '../atoms/Card';
-import { Heading, Text } from '../atoms/Typography';
-import Button from '../atoms/Button';
-import Select from '../atoms/Select';
-import Input from '../atoms/Input';
-import { ProcessingOptions } from '../../types/data';
+import Card from '../../atoms/Card';
+import { Heading, Text } from '../../atoms/Typography';
+import Button from '../../atoms/Button';
+import Select from '../../atoms/Select';
+import Input from '../../atoms/Input';
+import { ProcessingOptions } from '../../../types/data';
 
 interface DataProcessingFormProps {
   datasetId: number;

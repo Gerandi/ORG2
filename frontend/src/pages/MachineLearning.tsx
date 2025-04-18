@@ -9,12 +9,12 @@ import Card from '../components/atoms/Card';
 import Button from '../components/atoms/Button';
 import Tabs from '../components/molecules/Tabs';
 import { useMLContext, useDataContext, useNetworkContext, useProjectContext } from '../shared/contexts';
-import ModelCreationModal from '../components/organisms/ModelCreationModal';
-import ModelTrainingForm from '../components/organisms/ModelTrainingForm';
-import ModelEvaluationPanel from '../components/organisms/ModelEvaluationPanel';
-import FeatureImportanceChart from '../components/organisms/FeatureImportanceChart';
+import ModelTrainingForm from '../components/organisms/ml/ModelTrainingForm';
+import ModelEvaluationPanel from '../components/organisms/ml/ModelEvaluationPanel';
+import FeatureImportanceChart from '../components/organisms/ml/FeatureImportanceChart';
 import DataSelectionPanel from '../components/organisms/ml/DataSelectionPanel';
 import FeatureEngineeringPanel from '../components/organisms/ml/FeatureEngineeringPanel';
+import MLModelCreationModal from '../components/organisms/ml/MLModelCreationModal';
 import { MLModel, TrainingOptions } from '../types/ml';
 
 // Define the ML workflow steps
@@ -714,7 +714,7 @@ const MachineLearning: React.FC = () => {
       
       {/* Model Creation Modal */}
       {showModelModal && (
-        <ModelCreationModal
+        <MLModelCreationModal
           onClose={() => setShowModelModal(false)}
           onCreateModel={handleCreateModel}
           datasets={datasets}
