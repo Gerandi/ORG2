@@ -45,7 +45,7 @@ class DatasetInDB(DatasetBase):
     columns: Optional[List[str]] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Dataset(DatasetInDB):
     """Full dataset schema for API responses."""

@@ -55,13 +55,18 @@ class DataService:
     @staticmethod
     async def update_dataset(db: AsyncSession, dataset_id: int, dataset_data: Dict[str, Any]) -> Optional[Dataset]:
         """Update an existing dataset."""
-        await db.execute(
-            update(Dataset)
-            .where(Dataset.id == dataset_id)
-            .values(**dataset_data)
-        )
+        # Get the dataset first
+        dataset = await DataService.get_dataset(db, dataset_id)
+        if not dataset:
+            return None
+            
+        # Update individual attributes instead of using bulk update
+        for key, value in dataset_data.items():
+            setattr(dataset, key, value)
+            
         await db.commit()
-        return await DataService.get_dataset(db, dataset_id)
+        await db.refresh(dataset)
+        return dataset
     
     @staticmethod
     async def delete_dataset(db: AsyncSession, dataset_id: int) -> bool:
@@ -820,9 +825,51 @@ class DataService:
                                             mode_val = group.mode()
                                             if not mode_val.empty:
                                                 if isinstance(name, tuple):
-                                                    agg_values[name] = mode_val.iloc[0]
+                                                    # Convert the value to the appropriate type before assignment
+                                                    try:
+                                                        # Get the correct type from the series
+                                                        series_dtype = str(df[field].dtype)
+                                                        value = mode_val.iloc[0]
+                                                        
+                                                        # Handle different dtypes appropriately
+                                                        if 'float' in series_dtype:
+                                                            # Try to convert to float, use str if fails
+                                                            try:
+                                                                value = float(value)
+                                                            except:
+                                                                value = str(value)
+                                                        elif 'int' in series_dtype:
+                                                            # Try to convert to int, use str if fails
+                                                            try:
+                                                                value = int(value)
+                                                            except:
+                                                                value = str(value)
+                                                        
+                                                        agg_values[name] = value
+                                                    except Exception as e:
+                                                        logger.warning(f"Type conversion error: {e}, using string conversion")
+                                                        agg_values[name] = str(mode_val.iloc[0])
                                                 else:
-                                                    agg_values[name] = mode_val.iloc[0]
+                                                    # Same type conversion for non-tuple name
+                                                    try:
+                                                        series_dtype = str(df[field].dtype)
+                                                        value = mode_val.iloc[0]
+                                                        
+                                                        if 'float' in series_dtype:
+                                                            try:
+                                                                value = float(value)
+                                                            except:
+                                                                value = str(value)
+                                                        elif 'int' in series_dtype:
+                                                            try:
+                                                                value = int(value)
+                                                            except:
+                                                                value = str(value)
+                                                        
+                                                        agg_values[name] = value
+                                                    except Exception as e:
+                                                        logger.warning(f"Type conversion error: {e}, using string conversion")
+                                                        agg_values[name] = str(mode_val.iloc[0])
                                     
                                     # Apply aggregation to each valid group
                                     for idx in valid_groups:
