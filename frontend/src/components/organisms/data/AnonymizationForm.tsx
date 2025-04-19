@@ -191,16 +191,11 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
               Anonymization Method
             </label>
             <Select
+              options={anonymizationMethods}
               value={options.method}
               onChange={handleMethodChange}
               fullWidth
-            >
-              {anonymizationMethods.map(method => (
-                <option key={method.value} value={method.value}>
-                  {method.label}
-                </option>
-              ))}
-            </Select>
+            />
             <Text variant="caption" className="text-gray-500 mt-1">
               {anonymizationMethods.find(m => m.value === options.method)?.description}
             </Text>
@@ -327,7 +322,7 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
           <Button 
             type="submit" 
             variant="primary"
-            loading={isSubmitting}
+            isLoading={isSubmitting}
             disabled={isSubmitting}
           >
             <ShieldIcon size={16} className="mr-1" />

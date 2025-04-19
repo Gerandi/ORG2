@@ -413,10 +413,25 @@ const DataManagement: React.FC = () => {
       );
     }
 
+    // Add explicit check for columns before rendering
+    if (!selectedDataset.columns || selectedDataset.columns.length === 0) {
+      return (
+        <Card>
+          <div className="text-center py-12">
+            <Database className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+            <Heading level={4} className="mb-2">Dataset columns are not available</Heading>
+            <Text variant="caption" className="text-gray-500">
+              The selected dataset doesn't have any columns information available. Cannot process.
+            </Text>
+          </div>
+        </Card>
+      );
+    }
+
     return (
       <DataProcessingForm
         datasetId={selectedDataset.id}
-        columns={selectedDataset.columns || []}
+        columns={selectedDataset.columns}
         onSubmit={handleProcessSubmit}
       />
     );
@@ -447,10 +462,25 @@ const DataManagement: React.FC = () => {
       );
     }
 
+    // Add explicit check for columns before rendering
+    if (!selectedDataset.columns || selectedDataset.columns.length === 0) {
+      return (
+        <Card>
+          <div className="text-center py-12">
+            <Shield className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+            <Heading level={4} className="mb-2">Dataset columns are not available</Heading>
+            <Text variant="caption" className="text-gray-500">
+              The selected dataset doesn't have any columns information available. Cannot anonymize.
+            </Text>
+          </div>
+        </Card>
+      );
+    }
+
     return (
       <AnonymizationForm
         datasetId={selectedDataset.id}
-        columns={selectedDataset.columns || []}
+        columns={selectedDataset.columns}
         onSubmit={handleAnonymizeSubmit}
       />
     );
@@ -469,7 +499,7 @@ const DataManagement: React.FC = () => {
             variant="outline" 
             className="flex items-center"
             onClick={handleRefresh}
-            loading={isLoading}
+            isLoading={isLoading}
           >
             <RefreshCw size={16} className="mr-1" />
             Refresh

@@ -224,16 +224,11 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
                 Strategy
               </label>
               <Select
+                options={missingValueStrategies}
                 value={processingOptions.missing_values?.strategy || 'mean'}
                 onChange={handleMissingValuesStrategyChange}
                 fullWidth
-              >
-                {missingValueStrategies.map(strategy => (
-                  <option key={strategy.value} value={strategy.value}>
-                    {strategy.label}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
             
             {processingOptions.missing_values?.strategy === 'constant' && (
@@ -298,17 +293,11 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       <Select
+                        options={[{ value: '', label: 'Auto-detect' }, ...dataTypeOptions]}
                         value={processingOptions.data_types?.[column] || ''}
                         onChange={(e) => handleDataTypeChange(column, e.target.value)}
                         size="sm"
-                      >
-                        <option value="">Auto-detect</option>
-                        {dataTypeOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
+                      />
                     </td>
                   </tr>
                 ))}
@@ -326,16 +315,11 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
                 Normalization Method
               </label>
               <Select
+                options={normalizationStrategies}
                 value={processingOptions.normalization?.strategy || 'min_max'}
                 onChange={handleNormalizationStrategyChange}
                 fullWidth
-              >
-                {normalizationStrategies.map(strategy => (
-                  <option key={strategy.value} value={strategy.value}>
-                    {strategy.label}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
           </div>
           
@@ -384,7 +368,7 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
           <Button 
             type="submit" 
             variant="primary"
-            loading={isSubmitting}
+            isLoading={isSubmitting}
             disabled={isSubmitting}
           >
             <CogIcon size={16} className="mr-1" />
