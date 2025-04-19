@@ -15,7 +15,9 @@ import FeatureImportanceChart from '../components/organisms/ml/FeatureImportance
 import DataSelectionPanel from '../components/organisms/ml/DataSelectionPanel';
 import FeatureEngineeringPanel from '../components/organisms/ml/FeatureEngineeringPanel';
 import MLModelCreationModal from '../components/organisms/ml/MLModelCreationModal';
-import { MLModel, TrainingOptions } from '../types/ml';
+import ModelSelectionPanel from '../components/organisms/ml/ModelSelectionPanel';
+import TrainingConfigurationPanel from '../components/organisms/ml/TrainingConfigurationPanel';
+import { MLModel, TrainingOptions, AlgorithmType } from '../types/ml';
 
 // Define the ML workflow steps
 type MLWorkflowStep = 'data' | 'features' | 'model' | 'train' | 'evaluate';
@@ -26,6 +28,8 @@ const MachineLearning: React.FC = () => {
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
   const [targetColumn, setTargetColumn] = useState<string>('');
   const [preparedDataId, setPreparedDataId] = useState<number | null>(null);
+  const [selectedAlgorithmId, setSelectedAlgorithmId] = useState<string | null>(null);
+  const [modelName, setModelName] = useState<string>('');
   
   // UI state
   const [activeTab, setActiveTab] = useState('workflow');
@@ -79,6 +83,9 @@ const MachineLearning: React.FC = () => {
 
   // Get selected dataset object
   const selectedDataset = datasets.find(d => d.id === selectedDatasetId);
+  
+  // Get selected algorithm object
+  const selectedAlgorithm = algorithms.find(a => a.id === selectedAlgorithmId);
 
   // Load models on component mount and when selected project changes
   useEffect(() => {
@@ -158,6 +165,23 @@ const MachineLearning: React.FC = () => {
   const handleModelSelect = (id: number) => {
     setSelectedModelId(id);
   };
+  
+  // Handle model selection in the workflow
+  const handleModelSelected = (algorithmId: string, name: string) => {
+    setSelectedAlgorithmId(algorithmId);
+    setModelName(name);
+    setCurrentStep('train');
+  };
+  
+  // Handle going back to model selection
+  const handleBackToModelSelection = () => {
+    setCurrentStep('model');
+  };
+  
+  // Handle going back to features step
+  const handleBackToFeatures = () => {
+    setCurrentStep('features');
+  };
 
   // Handle model creation
   const handleCreateModel = async (modelData: Partial<MLModel>) => {
@@ -170,12 +194,41 @@ const MachineLearning: React.FC = () => {
   };
 
   // Handle model training
-  const handleTrainModel = async (options: TrainingOptions) => {
-    if (selectedModel) {
-      await trainModel(selectedModel.id, options);
-      // Refresh model details and feature importance
-      await selectModel(selectedModel.id);
-      await fetchFeatureImportance(selectedModel.id);
+  const handleTrainingConfigured = async (options: TrainingOptions) => {
+    if (selectedAlgorithmId && modelName && preparedDataId) {
+      try {
+        // Create a new model with the selected algorithm and name
+        const modelData: Partial<MLModel> = {
+          name: modelName,
+          algorithm: selectedAlgorithmId as AlgorithmType,
+          prepared_data_id: preparedDataId,
+          type: preparedDataInfo?.problem_type || 'classification',
+          project_id: selectedProject?.id
+        };
+        
+        await createModel(modelData);
+        
+        // Get the newly created model's ID
+        await fetchModels();
+        const newModel = models.find(m => m.name === modelName);
+        
+        if (newModel) {
+          // Train the model
+          await trainModel(newModel.id, options);
+          
+          // Update the selected model ID
+          setSelectedModelId(newModel.id);
+          
+          // Refresh model details and feature importance
+          await selectModel(newModel.id);
+          await fetchFeatureImportance(newModel.id);
+          
+          // Move to evaluation step
+          setCurrentStep('evaluate');
+        }
+      } catch (error) {
+        console.error("Error creating or training model:", error);
+      }
     }
   };
 
@@ -351,44 +404,23 @@ const MachineLearning: React.FC = () => {
               )}
               
               {currentStep === 'model' && preparedDataId && (
-                <Card className="pb-6">
-                  <div className="flex items-center mb-4">
-                    <Layers className="mr-2 text-blue-600" size={24} />
-                    <Heading level={3}>Model Configuration</Heading>
-                  </div>
-                  
-                  <Text variant="p" className="mb-6 text-gray-600">
-                    Data preparation complete! Now you can create a model to train.
-                  </Text>
-                  
-                  {preparedDataInfo && (
-                    <div className="bg-green-50 p-4 rounded-md border border-green-200 mb-6">
-                      <div className="flex items-center mb-2">
-                        <CheckCircle className="text-green-500 mr-2" size={20} />
-                        <Text className="font-medium text-green-700">Data Successfully Prepared</Text>
-                      </div>
-                      <div className="text-sm text-green-600 ml-7">
-                        <p>Training samples: {preparedDataInfo.feature_info?.train_size}</p>
-                        <p>Testing samples: {preparedDataInfo.feature_info?.test_size}</p>
-                        <p>Features: {preparedDataInfo.feature_info?.transformed_feature_count || preparedDataInfo.feature_columns?.length}</p>
-                        {preparedDataInfo.feature_info?.network_metrics?.length > 0 && (
-                          <p>Network metrics included: {preparedDataInfo.feature_info.network_metrics.length}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="pt-4 flex justify-center">
-                    <Button
-                      variant="primary"
-                      onClick={() => setShowModelModal(true)}
-                      disabled={isLoading}
-                    >
-                      <Plus size={16} className="mr-1" />
-                      Create New Model
-                    </Button>
-                  </div>
-                </Card>
+                <ModelSelectionPanel
+                  algorithms={algorithms}
+                  preparedDataInfo={preparedDataInfo}
+                  onModelSelected={handleModelSelected}
+                  onBack={handleBackToFeatures}
+                  isLoading={isLoading}
+                />
+              )}
+              
+              {currentStep === 'train' && selectedAlgorithmId && selectedAlgorithm && (
+                <TrainingConfigurationPanel
+                  selectedAlgorithm={selectedAlgorithm}
+                  initialOptions={trainingOptions}
+                  onSubmit={handleTrainingConfigured}
+                  onBack={handleBackToModelSelection}
+                  isLoading={isLoading}
+                />
               )}
             </>
           )}
