@@ -51,7 +51,7 @@ const Button: React.FC<ButtonProps> = ({
     ${variantClasses[variant]} 
     ${widthClass}
     ${className}
-  `;
+  `.trim();
 
   return (
     <button 

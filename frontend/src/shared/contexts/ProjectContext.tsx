@@ -125,15 +125,14 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     }
   };
   
-  // Load project details from localStorage on mount
+  // Initial load of project from localStorage
   useEffect(() => {
-    if (isAuthenticated && selectedProjectId && !selectedProject && !isLoading) {
+    if (isAuthenticated && selectedProjectId && !selectedProject) {
       selectProject(selectedProjectId);
-    } else if (!selectedProjectId && selectedProject) {
-      setSelectedProject(null);
     }
-  }, [selectedProjectId, isAuthenticated, selectedProject, isLoading]);
-  
+  }, [isAuthenticated, selectedProjectId, selectedProject]);
+
+  // Load projects on authentication changes
   useEffect(() => {
     if (isAuthenticated) {
       fetchProjects();

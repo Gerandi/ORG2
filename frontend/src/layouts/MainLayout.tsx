@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar, Header } from '../components/organisms/Navigation';
 import { useUIContext } from '../shared/contexts/UIContext';
 import ProjectCreationModal from '../components/organisms/ProjectModals/ProjectCreationModal';
-import { useProjectContext } from '../shared/contexts/ProjectContext';
 
 const getTitleFromPath = (path: string): string => {
   // Map routes to page titles
@@ -25,7 +24,6 @@ const MainLayout: React.FC = () => {
   const location = useLocation();
   const title = getTitleFromPath(location.pathname);
   const { isCreateProjectModalOpen, closeCreateProjectModal } = useUIContext();
-  const { fetchProjects } = useProjectContext();
 
   return (
     <div className="flex h-screen w-full bg-gray-50">
@@ -48,10 +46,6 @@ const MainLayout: React.FC = () => {
         {isCreateProjectModalOpen && (
           <ProjectCreationModal
             onClose={closeCreateProjectModal}
-            onSuccess={() => {
-              fetchProjects(); // Refresh project list after creation
-              closeCreateProjectModal();
-            }}
           />
         )}
       </div>
