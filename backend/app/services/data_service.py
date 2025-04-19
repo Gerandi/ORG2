@@ -9,10 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc
 import networkx as nx
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import logging
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, OneHotEncoder, ColumnTransformer
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer # Import from sklearn.compose
 from sklearn.impute import SimpleImputer
 
 from app.models.models import Dataset # Corrected import path
@@ -572,28 +573,28 @@ class DataService:
             
             # Update dataset record
             try:
-                # Create a copy of the existing metadata or initialize an empty dict
-                metadata = dict(dataset.metadata or {})
-                
-                # Update with processing information
-                metadata["processing"] = {
-                    "options": options.dict(),
-                    "timestamp": datetime.now().isoformat(),
-                    "column_stats": {
-                        col: {
-                            "dtype": str(df[col].dtype),
-                            "missing": int(df[col].isna().sum()),
-                            "unique": int(df[col].nunique())
-                        } for col in df.columns
-                    }
-                }
+                # Safely handle existing metadata
+                existing_metadata = dataset.metadata if isinstance(dataset.metadata, dict) else {}
                 
                 update_data = {
                     "status": "Processed",
                     "row_count": len(df),
                     "columns": df.columns.tolist(),
                     "processed_file_path": processed_file_path,
-                    "metadata": metadata
+                    "metadata": {
+                        **existing_metadata, # Safely merge existing metadata
+                        "processing": {
+                            "options": options.dict(),
+                            "timestamp": datetime.now(timezone.utc).isoformat(), # Use timezone aware
+                            "column_stats": {
+                                col: {
+                                    "dtype": str(df[col].dtype),
+                                    "missing": int(df[col].isna().sum()),
+                                    "unique": int(df[col].nunique())
+                                } for col in df.columns
+                            }
+                        }
+                    }
                 }
                 
                 return await DataService.update_dataset(db, dataset_id, update_data)
@@ -969,8 +970,8 @@ class DataService:
             
             # Update dataset record
             try:
-                # Create a copy of the existing metadata or initialize an empty dict
-                metadata = dict(dataset.metadata or {})
+                # Safely handle existing metadata
+                existing_metadata = dataset.metadata if isinstance(dataset.metadata, dict) else {}
                 
                 # Build anonymization details
                 anonymization_details = {
@@ -978,22 +979,22 @@ class DataService:
                     "sensitive_fields": options.sensitive_fields,
                     "quasi_identifiers": options.quasi_identifiers,
                     "parameters": options.parameters,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(), # Use timezone aware
                 }
                 
                 # Include mapping path in metadata if mapping was saved
                 if mapping_file_path:
                     anonymization_details["mapping_file_path"] = mapping_file_path
                 
-                # Update metadata with anonymization details
-                metadata["anonymization"] = anonymization_details
-                
                 update_data = {
                     "status": "Anonymized",
                     "anonymized_file_path": anonymized_file_path,
                     "columns": df.columns.tolist(),
                     "row_count": len(df),
-                    "metadata": metadata
+                    "metadata": {
+                        **existing_metadata, # Safely merge existing metadata
+                        "anonymization": anonymization_details
+                    }
                 }
                 
                 return await DataService.update_dataset(db, dataset_id, update_data)
