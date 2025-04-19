@@ -92,6 +92,11 @@ class DataService {
       return await apiService.post<Dataset>(`${this.baseUrl}/${id}/process`, options);
     } catch (error) {
       console.error(`Error processing dataset ${id}:`, error);
+      // Add more detailed error information
+      if (error.status === 500) {
+        // Log potential dataset structure that might be causing the issue
+        console.error('Processing options that caused error:', JSON.stringify(options, null, 2));
+      }
       throw error;
     }
   }
@@ -102,6 +107,11 @@ class DataService {
       return await apiService.post<Dataset>(`${this.baseUrl}/${id}/anonymize`, options);
     } catch (error) {
       console.error(`Error anonymizing dataset ${id}:`, error);
+      // Add more detailed error information
+      if (error.status === 500) {
+        // Log potential dataset structure that might be causing the issue
+        console.error('Anonymization options that caused error:', JSON.stringify(options, null, 2));
+      }
       throw error;
     }
   }

@@ -194,10 +194,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
       // Improved error handling for 403 errors
       if (err.response && err.response.status === 403) {
         setError("You don't have permission to process this dataset");
+      } else if (err.status === 500) {
+        setError('Server error while processing dataset. Please check if the dataset format is valid.');
       } else {
-        setError('Failed to process dataset');
+        setError(`Failed to process dataset: ${err.message || 'Unknown error'}`);
       }
-      console.error(err);
+      console.error('Error processing dataset', id, err);
     } finally {
       setIsLoading(false);
     }
@@ -218,10 +220,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
       // Improved error handling for 403 errors
       if (err.response && err.response.status === 403) {
         setError("You don't have permission to anonymize this dataset");
+      } else if (err.status === 500) {
+        setError('Server error while anonymizing dataset. Please check if the dataset format is valid.');
       } else {
-        setError('Failed to anonymize dataset');
+        setError(`Failed to anonymize dataset: ${err.message || 'Unknown error'}`);
       }
-      console.error(err);
+      console.error('Error anonymizing dataset', id, err);
     } finally {
       setIsLoading(false);
     }

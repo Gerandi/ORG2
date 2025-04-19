@@ -231,7 +231,7 @@ const SocialNetworkAnalysis: React.FC = () => {
             variant="outline" 
             className="flex items-center"
             onClick={handleRefresh}
-            loading={isLoading}
+            isLoading={isLoading}
           >
             <RefreshCw size={16} className="mr-1" />
             Refresh
@@ -535,7 +535,7 @@ const SocialNetworkAnalysis: React.FC = () => {
                         }
                       }}
                       disabled={isLoading}
-                      loading={isLoading}
+                      isLoading={isLoading}
                     >
                       Detect Communities
                     </Button>
@@ -696,7 +696,7 @@ const SocialNetworkAnalysis: React.FC = () => {
                         }
                       }}
                       disabled={isLoading}
-                      loading={isLoading}
+                      isLoading={isLoading}
                     >
                       Predict Links
                     </Button>

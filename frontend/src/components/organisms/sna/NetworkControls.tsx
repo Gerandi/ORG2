@@ -240,16 +240,11 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
               Layout Type
             </label>
             <Select
+              options={layoutTypes}
               value={visualizationOptions.layout.type}
               onChange={handleLayoutChange}
               fullWidth
-            >
-              {layoutTypes.map(type => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </Select>
+            />
             <Text variant="caption" className="text-gray-500 mt-1">
               {visualizationOptions.layout.type === 'force' && 'Force-directed layout simulates physical forces to position nodes'}
               {visualizationOptions.layout.type === 'circular' && 'Arranges nodes in a circle, useful for cyclic structures'}
@@ -296,16 +291,11 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
               Node Size
             </label>
             <Select
+              options={nodeSizeOptions}
               value={visualizationOptions.node_size.by}
               onChange={handleNodeSizeChange}
               fullWidth
-            >
-              {nodeSizeOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+            />
           </div>
 
           {visualizationOptions.node_size.by === 'attribute' && (
@@ -314,17 +304,11 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
                 Size Attribute
               </label>
               <Select
+                options={[{value: '', label: 'Select Attribute'}, ...otherAttributes.map(attr => ({value: attr, label: attr}))]} 
                 value={visualizationOptions.node_size.attribute || ''}
                 onChange={handleNodeSizeAttributeChange}
                 fullWidth
-              >
-                <option value="">Select Attribute</option>
-                {otherAttributes.map(attr => (
-                  <option key={attr} value={attr}>
-                    {attr}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
           )}
 
@@ -371,16 +355,11 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
               Node Color
             </label>
             <Select
+              options={nodeColorOptions}
               value={visualizationOptions.node_color.by}
               onChange={handleNodeColorChange}
               fullWidth
-            >
-              {nodeColorOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+            />
           </div>
 
           {visualizationOptions.node_color.by === 'attribute' && (
@@ -389,17 +368,11 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
                 Color Attribute
               </label>
               <Select
+                options={[{value: '', label: 'Select Attribute'}, ...otherAttributes.map(attr => ({value: attr, label: attr}))]} 
                 value={visualizationOptions.node_color.attribute || ''}
                 onChange={handleNodeColorAttributeChange}
                 fullWidth
-              >
-                <option value="">Select Attribute</option>
-                {otherAttributes.map(attr => (
-                  <option key={attr} value={attr}>
-                    {attr}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
           )}
 
@@ -422,18 +395,15 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
                 Label Property
               </label>
               <Select
+                options={[
+                  {value: 'label', label: 'Node Label'},
+                  {value: 'id', label: 'Node ID'},
+                  ...otherAttributes.map(attr => ({value: attr, label: attr}))
+                ]}
                 value={visualizationOptions.label_property || 'label'}
                 onChange={handleLabelPropertyChange}
                 fullWidth
-              >
-                <option value="label">Node Label</option>
-                <option value="id">Node ID</option>
-                {otherAttributes.map(attr => (
-                  <option key={attr} value={attr}>
-                    {attr}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
           )}
         </div>
@@ -447,16 +417,11 @@ const NetworkControls: React.FC<NetworkControlsProps> = ({
               Edge Width
             </label>
             <Select
+              options={edgeWidthOptions}
               value={visualizationOptions.edge_width.by}
               onChange={handleEdgeWidthChange}
               fullWidth
-            >
-              {edgeWidthOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+            />
           </div>
 
           {visualizationOptions.edge_width.by === 'weight' && (
