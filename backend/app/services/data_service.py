@@ -12,6 +12,8 @@ import networkx as nx
 from datetime import datetime
 import uuid
 import logging
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, OneHotEncoder, ColumnTransformer
+from sklearn.impute import SimpleImputer
 
 from app.models.models import Dataset # Corrected import path
 from app.services.network_analysis import NetworkAnalysisService
@@ -279,244 +281,332 @@ class DataService:
             file_type = dataset.type
             
             # Load data based on file type
-            if file_type == "CSV" or file_path.endswith(".csv"):
-                df = pd.read_csv(file_path)
-            elif file_type == "XLSX" or file_path.endswith((".xlsx", ".xls")):
-                df = pd.read_excel(file_path)
-            elif file_type == "JSON" or file_path.endswith(".json"):
-                with open(file_path, 'r') as f:
-                    data = json.load(f)
-                if isinstance(data, list):
-                    df = pd.DataFrame(data)
+            try:
+                if file_type == "CSV" or file_path.endswith(".csv"):
+                    df = pd.read_csv(file_path)
+                elif file_type == "XLSX" or file_path.endswith((".xlsx", ".xls")):
+                    df = pd.read_excel(file_path)
+                elif file_type == "JSON" or file_path.endswith(".json"):
+                    with open(file_path, 'r') as f:
+                        data = json.load(f)
+                    if isinstance(data, list):
+                        df = pd.DataFrame(data)
+                    else:
+                        df = pd.DataFrame([data])
+                elif file_type == "NETWORK":
+                    # For network files, we need special handling
+                    return await DataService._process_network_dataset(db, dataset, options)
                 else:
-                    df = pd.DataFrame([data])
-            elif file_type == "NETWORK":
-                # For network files, we need special handling
-                return await DataService._process_network_dataset(db, dataset, options)
-            else:
-                raise HTTPException(status_code=400, detail=f"Unsupported file type for processing: {file_type}")
+                    raise HTTPException(status_code=400, detail=f"Unsupported file type for processing: {file_type}")
+            except Exception as e:
+                logger.error(f"Error loading dataset file: {e}")
+                raise HTTPException(status_code=500, detail=f"Error loading dataset file: {str(e)}")
             
             # Handle missing values if specified
             if options.missing_values and options.missing_values.get("strategy"):
-                strategy = options.missing_values.get("strategy")
-                columns = options.missing_values.get("columns", [])
-                
-                # Apply only to specified columns or all if empty
-                if not columns:
-                    columns = df.columns.tolist()
-                
-                # Validate columns exist in the dataframe
-                missing_cols = [col for col in columns if col not in df.columns]
-                if missing_cols:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Columns not found in dataset: {', '.join(missing_cols)}"
-                    )
-                
-                if strategy == "mean":
-                    for col in columns:
-                        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-                            df[col] = df[col].fillna(df[col].mean())
-                        elif col in df.columns:
-                            logger.warning(f"Cannot apply 'mean' strategy to non-numeric column: {col}")
-                
-                elif strategy == "median":
-                    for col in columns:
-                        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-                            df[col] = df[col].fillna(df[col].median())
-                        elif col in df.columns:
-                            logger.warning(f"Cannot apply 'median' strategy to non-numeric column: {col}")
-                
-                elif strategy == "mode":
-                    for col in columns:
-                        if col in df.columns:
-                            # Get the mode value (most common)
-                            mode_value = df[col].mode()
-                            if not mode_value.empty:
-                                df[col] = df[col].fillna(mode_value[0])
-                
-                elif strategy == "constant":
-                    fill_value = options.missing_values.get("fill_value")
-                    if fill_value is None:
-                        raise HTTPException(
-                            status_code=400, 
-                            detail="Fill value is required for constant strategy"
-                        )
+                try:
+                    strategy = options.missing_values.get("strategy")
+                    columns = options.missing_values.get("columns", [])
                     
-                    for col in columns:
-                        if col in df.columns:
-                            # Try to convert fill_value to the appropriate type for the column
-                            try:
-                                if pd.api.types.is_numeric_dtype(df[col]):
-                                    typed_fill_value = float(fill_value)
-                                elif pd.api.types.is_datetime64_dtype(df[col]):
-                                    typed_fill_value = pd.to_datetime(fill_value)
-                                else:
-                                    typed_fill_value = str(fill_value)
-                                df[col] = df[col].fillna(typed_fill_value)
-                            except ValueError:
-                                df[col] = df[col].fillna(str(fill_value))
-                
-                elif strategy == "remove":
-                    # Drop rows with missing values in specified columns
-                    valid_columns = [col for col in columns if col in df.columns]
-                    if valid_columns:
-                        df = df.dropna(subset=valid_columns)
-            
-            # Handle data type conversions
-            if options.data_types:
-                for col, dtype in options.data_types.items():
-                    if col in df.columns:
-                        try:
-                            if dtype == "number":
-                                df[col] = pd.to_numeric(df[col], errors="coerce")
-                            elif dtype == "string":
-                                df[col] = df[col].astype(str)
-                            elif dtype == "boolean":
-                                # Convert to boolean, handling various formats
-                                df[col] = df[col].map({
-                                    "true": True, "True": True, "1": True, 1: True, "yes": True, "Yes": True,
-                                    "false": False, "False": False, "0": False, 0: False, "no": False, "No": False
-                                }).astype(bool)
-                            elif dtype == "date":
-                                df[col] = pd.to_datetime(df[col], errors="coerce")
-                        except Exception as e:
-                            logger.warning(f"Failed to convert column {col} to {dtype}: {e}")
-            
-            # Handle normalization
-            if options.normalization and options.normalization.get("strategy") != "none":
-                strategy = options.normalization.get("strategy")
-                columns = options.normalization.get("columns", [])
-                
-                # Validate columns exist in the dataframe
-                missing_cols = [col for col in columns if col not in df.columns]
-                if missing_cols:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Columns not found in dataset for normalization: {', '.join(missing_cols)}"
-                    )
-                
-                # Apply only to specified columns
-                if columns:
-                    from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
-                    
-                    for col in columns:
-                        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-                            # Filter out NaN values before scaling
-                            mask = df[col].notna()
-                            if mask.sum() > 0:  # If there are non-NaN values
-                                values = df.loc[mask, col].values.reshape(-1, 1)
-                                
-                                if strategy == "min_max":
-                                    scaler = MinMaxScaler()
-                                elif strategy == "standard":
-                                    scaler = StandardScaler()
-                                elif strategy == "robust":
-                                    scaler = RobustScaler()
-                                else:
-                                    continue
-                                    
-                                # Apply scaling
-                                try:
-                                    scaled_values = scaler.fit_transform(values)
-                                    df.loc[mask, col] = scaled_values.flatten()
-                                except Exception as e:
-                                    logger.warning(f"Failed to normalize column {col}: {e}")
-                        elif col in df.columns:
-                            logger.warning(f"Cannot normalize non-numeric column: {col}")
-            
-            # Apply transformations if specified
-            if options.transformations:
-                for transform in options.transformations:
-                    operation = transform.get("operation")
-                    columns = transform.get("columns", [])
-                    parameters = transform.get("parameters", {})
+                    # Apply only to specified columns or all if empty
+                    if not columns:
+                        columns = df.columns.tolist()
                     
                     # Validate columns exist in the dataframe
                     missing_cols = [col for col in columns if col not in df.columns]
                     if missing_cols:
                         raise HTTPException(
                             status_code=400, 
-                            detail=f"Columns not found in dataset for transformation: {', '.join(missing_cols)}"
+                            detail=f"Columns not found in dataset: {', '.join(missing_cols)}"
                         )
                     
-                    for col in columns:
-                        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                    # Apply the appropriate imputation strategy based on data types
+                    if strategy == "mean":
+                        for col in columns:
+                            if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                                # Handle case where all values might be NaN
+                                if df[col].isna().all():
+                                    logger.warning(f"Column {col} contains all NaN values, cannot apply mean imputation")
+                                    continue
+                                df[col] = df[col].fillna(df[col].mean())
+                            elif col in df.columns:
+                                logger.warning(f"Cannot apply 'mean' strategy to non-numeric column: {col}")
+                    
+                    elif strategy == "median":
+                        for col in columns:
+                            if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                                # Handle case where all values might be NaN
+                                if df[col].isna().all():
+                                    logger.warning(f"Column {col} contains all NaN values, cannot apply median imputation")
+                                    continue
+                                df[col] = df[col].fillna(df[col].median())
+                            elif col in df.columns:
+                                logger.warning(f"Cannot apply 'median' strategy to non-numeric column: {col}")
+                    
+                    elif strategy == "mode":
+                        for col in columns:
+                            if col in df.columns:
+                                # Handle case where all values might be NaN
+                                if df[col].isna().all():
+                                    logger.warning(f"Column {col} contains all NaN values, cannot apply mode imputation")
+                                    continue
+                                # Get the mode value (most common)
+                                mode_value = df[col].mode()
+                                if not mode_value.empty:
+                                    df[col] = df[col].fillna(mode_value[0])
+                    
+                    elif strategy == "constant":
+                        fill_value = options.missing_values.get("fill_value")
+                        if fill_value is None:
+                            raise HTTPException(
+                                status_code=400, 
+                                detail="Fill value is required for constant strategy"
+                            )
+                        
+                        for col in columns:
+                            if col in df.columns:
+                                # Try to convert fill_value to the appropriate type for the column
+                                try:
+                                    if pd.api.types.is_numeric_dtype(df[col]):
+                                        typed_fill_value = float(fill_value)
+                                    elif pd.api.types.is_datetime64_dtype(df[col]):
+                                        typed_fill_value = pd.to_datetime(fill_value)
+                                    else:
+                                        typed_fill_value = str(fill_value)
+                                    df[col] = df[col].fillna(typed_fill_value)
+                                except ValueError:
+                                    df[col] = df[col].fillna(str(fill_value))
+                    
+                    elif strategy == "remove":
+                        # Drop rows with missing values in specified columns
+                        valid_columns = [col for col in columns if col in df.columns]
+                        if valid_columns:
+                            before_count = len(df)
+                            df = df.dropna(subset=valid_columns)
+                            after_count = len(df)
+                            logger.info(f"Removed {before_count - after_count} rows with missing values")
+                except Exception as e:
+                    logger.error(f"Error handling missing values: {e}")
+                    raise HTTPException(status_code=500, detail=f"Error handling missing values: {str(e)}")
+            
+            # Handle data type conversions
+            if options.data_types:
+                try:
+                    for col, dtype in options.data_types.items():
+                        if col in df.columns:
                             try:
-                                if operation == "log":
-                                    base = float(parameters.get("base", 10))
-                                    # Handle zeros and negative values
-                                    min_val = df[col].min()
-                                    if min_val <= 0:
-                                        # Add offset to make all values positive
-                                        offset = abs(min_val) + 1.0 if min_val <= 0 else 0
-                                        df[col] = np.log(df[col] + offset) / np.log(base)
+                                if dtype == "number":
+                                    df[col] = pd.to_numeric(df[col], errors="coerce")
+                                elif dtype == "string":
+                                    df[col] = df[col].astype(str)
+                                elif dtype == "boolean":
+                                    # Handle various boolean representations
+                                    if pd.api.types.is_numeric_dtype(df[col]):
+                                        # If numeric, treat non-zero as True
+                                        df[col] = df[col].astype(bool)
                                     else:
-                                        df[col] = np.log(df[col]) / np.log(base)
+                                        # For string-like, map common representations
+                                        bool_map = {
+                                            "true": True, "True": True, "TRUE": True, "1": True, 1: True, 
+                                            "yes": True, "Yes": True, "YES": True, "y": True, "Y": True, "t": True, "T": True,
+                                            "false": False, "False": False, "FALSE": False, "0": False, 0: False, 
+                                            "no": False, "No": False, "NO": False, "n": False, "N": False, "f": False, "F": False
+                                        }
+                                        # First convert to string to handle numeric values safely
+                                        df[col] = df[col].astype(str).map(lambda x: bool_map.get(x, None))
+                                elif dtype == "date":
+                                    # Try to parse dates with more robust error handling
+                                    try:
+                                        df[col] = pd.to_datetime(df[col], errors="coerce")
+                                    except Exception as date_err:
+                                        logger.warning(f"Advanced date parsing failed for {col}: {date_err}")
+                                        # Try with a more flexible parser as backup
+                                        try:
+                                            from dateutil.parser import parse as parse_date
+                                            df[col] = df[col].apply(lambda x: parse_date(x) if pd.notna(x) and x != '' else pd.NaT)
+                                        except Exception as flex_err:
+                                            logger.error(f"Flexible date parsing also failed: {flex_err}")
+                                            # Last resort: keep original and inform user
+                                            raise ValueError(f"Could not convert column {col} to date format")
+                            except Exception as type_err:
+                                logger.warning(f"Failed to convert column {col} to {dtype}: {type_err}")
+                                raise HTTPException(
+                                    status_code=400,
+                                    detail=f"Failed to convert column {col} to {dtype}: {str(type_err)}"
+                                )
+                except Exception as e:
+                    logger.error(f"Error converting data types: {e}")
+                    raise HTTPException(status_code=500, detail=f"Error converting data types: {str(e)}")
+            
+            # Handle normalization
+            if options.normalization and options.normalization.get("strategy") and options.normalization.get("strategy") != "none":
+                try:
+                    strategy = options.normalization.get("strategy")
+                    columns = options.normalization.get("columns", [])
+                    
+                    # If no columns specified, try to apply to all numeric columns
+                    if not columns:
+                        columns = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
+                        
+                    # Validate columns exist in the dataframe
+                    missing_cols = [col for col in columns if col not in df.columns]
+                    if missing_cols:
+                        raise HTTPException(
+                            status_code=400, 
+                            detail=f"Columns not found in dataset for normalization: {', '.join(missing_cols)}"
+                        )
+                    
+                    # Identify numeric columns from the specified columns
+                    numeric_columns = [col for col in columns if col in df.columns and pd.api.types.is_numeric_dtype(df[col])]
+                    if not numeric_columns:
+                        logger.warning("No numeric columns found for normalization")
+                    else:
+                        # Use sklearn transformers for more robust normalization
+                        if strategy == "min_max":
+                            scaler = MinMaxScaler()
+                        elif strategy == "standard":
+                            scaler = StandardScaler()
+                        elif strategy == "robust":
+                            scaler = RobustScaler()
+                        else:
+                            logger.warning(f"Unsupported normalization strategy: {strategy}")
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Unsupported normalization strategy: {strategy}"
+                            )
+                        
+                        # Apply scaler to each column separately to handle missing values
+                        for col in numeric_columns:
+                            # Get non-missing values
+                            mask = df[col].notna()
+                            if mask.sum() > 1:  # Need at least 2 values for scaling
+                                try:
+                                    values = df.loc[mask, col].values.reshape(-1, 1)
+                                    scaled_values = scaler.fit_transform(values)
+                                    df.loc[mask, col] = scaled_values.flatten()
+                                except Exception as scale_err:
+                                    logger.warning(f"Failed to normalize column {col}: {scale_err}")
+                except Exception as e:
+                    logger.error(f"Error normalizing data: {e}")
+                    raise HTTPException(status_code=500, detail=f"Error normalizing data: {str(e)}")
+            
+            # Apply transformations if specified
+            if options.transformations:
+                try:
+                    for transform in options.transformations:
+                        operation = transform.get("operation")
+                        columns = transform.get("columns", [])
+                        parameters = transform.get("parameters", {})
+                        
+                        # Validate columns exist in the dataframe
+                        missing_cols = [col for col in columns if col not in df.columns]
+                        if missing_cols:
+                            raise HTTPException(
+                                status_code=400, 
+                                detail=f"Columns not found in dataset for transformation: {', '.join(missing_cols)}"
+                            )
+                        
+                        for col in columns:
+                            if col in df.columns:
+                                # Check if column is numeric for numeric operations
+                                if operation in ["log", "sqrt", "power"] and not pd.api.types.is_numeric_dtype(df[col]):
+                                    logger.warning(f"Cannot apply {operation} to non-numeric column: {col}")
+                                    continue
+                                
+                                try:
+                                    if operation == "log":
+                                        base = float(parameters.get("base", 10))
+                                        # Handle zeros and negative values
+                                        min_val = df[col].min()
+                                        if min_val <= 0:
+                                            # Add offset to make all values positive
+                                            offset = abs(min_val) + 1.0 if min_val <= 0 else 0
+                                            df[col] = np.log(df[col] + offset) / np.log(base)
+                                        else:
+                                            df[col] = np.log(df[col]) / np.log(base)
+                                        
+                                    elif operation == "sqrt":
+                                        # Handle negative values
+                                        min_val = df[col].min()
+                                        if (min_val < 0):
+                                            # Add offset to make all values positive
+                                            offset = abs(min_val) + 1.0
+                                            df[col] = np.sqrt(df[col] + offset)
+                                        else:
+                                            df[col] = np.sqrt(df[col])
                                     
-                                elif operation == "sqrt":
-                                    # Handle negative values
-                                    min_val = df[col].min()
-                                    if (min_val < 0):
-                                        # Add offset to make all values positive
-                                        offset = abs(min_val) + 1.0
-                                        df[col] = np.sqrt(df[col] + offset)
-                                    else:
-                                        df[col] = np.sqrt(df[col])
-                                
-                                elif operation == "power":
-                                    power = float(parameters.get("power", 2))
-                                    df[col] = df[col] ** power
-                                
-                                elif operation == "bin":
-                                    bins = int(parameters.get("bins", 5))
-                                    labels = parameters.get("labels", None)
-                                    if labels and len(labels) != bins:
-                                        labels = None
-                                    df[col] = pd.cut(
-                                        df[col], 
-                                        bins=bins, 
-                                        labels=labels,
-                                        include_lowest=True
-                                    )
-                                
-                            except Exception as e:
-                                logger.warning(f"Failed to apply {operation} to column {col}: {e}")
-                        elif col in df.columns:
-                            logger.warning(f"Cannot apply {operation} to non-numeric column: {col}")
+                                    elif operation == "power":
+                                        power = float(parameters.get("power", 2))
+                                        df[col] = df[col] ** power
+                                    
+                                    elif operation == "bin":
+                                        bins = int(parameters.get("bins", 5))
+                                        labels = parameters.get("labels", None)
+                                        if labels and len(labels) != bins:
+                                            labels = None
+                                        # Handle case where data is constant
+                                        if df[col].min() == df[col].max():
+                                            logger.warning(f"Cannot bin column {col} with constant value {df[col].min()}")
+                                            continue
+                                        df[col] = pd.cut(
+                                            df[col], 
+                                            bins=bins, 
+                                            labels=labels,
+                                            include_lowest=True
+                                        )
+                                    
+                                except Exception as trans_err:
+                                    logger.warning(f"Failed to apply {operation} to column {col}: {trans_err}")
+                except Exception as e:
+                    logger.error(f"Error applying transformations: {e}")
+                    raise HTTPException(status_code=500, detail=f"Error applying transformations: {str(e)}")
             
             # Save processed dataset
-            dataset_dir = os.path.dirname(dataset.file_path)
-            processed_file_path = os.path.join(dataset_dir, "processed_data.csv")
-            df.to_csv(processed_file_path, index=False)
+            try:
+                dataset_dir = os.path.dirname(dataset.file_path)
+                processed_file_path = os.path.join(dataset_dir, "processed_data.csv")
+                df.to_csv(processed_file_path, index=False)
+            except Exception as e:
+                logger.error(f"Error saving processed dataset: {e}")
+                raise HTTPException(status_code=500, detail=f"Error saving processed dataset: {str(e)}")
             
             # Update dataset record
-            update_data = {
-                "status": "Processed",
-                "row_count": len(df),
-                "columns": df.columns.tolist(),
-                "processed_file_path": processed_file_path,
-                "metadata": {
-                    **(dataset.metadata or {}),
-                    "processing": {
-                        "options": options.dict(),
-                        "timestamp": datetime.now().isoformat(),
-                        "column_stats": {
-                            col: {
-                                "dtype": str(df[col].dtype),
-                                "missing": int(df[col].isna().sum()),
-                                "unique": int(df[col].nunique())
-                            } for col in df.columns
-                        }
+            try:
+                # Create a copy of the existing metadata or initialize an empty dict
+                metadata = dict(dataset.metadata or {})
+                
+                # Update with processing information
+                metadata["processing"] = {
+                    "options": options.dict(),
+                    "timestamp": datetime.now().isoformat(),
+                    "column_stats": {
+                        col: {
+                            "dtype": str(df[col].dtype),
+                            "missing": int(df[col].isna().sum()),
+                            "unique": int(df[col].nunique())
+                        } for col in df.columns
                     }
                 }
-            }
+                
+                update_data = {
+                    "status": "Processed",
+                    "row_count": len(df),
+                    "columns": df.columns.tolist(),
+                    "processed_file_path": processed_file_path,
+                    "metadata": metadata
+                }
+                
+                return await DataService.update_dataset(db, dataset_id, update_data)
+            except Exception as e:
+                logger.error(f"Error updating dataset record: {e}")
+                raise HTTPException(status_code=500, detail=f"Error updating dataset record: {str(e)}")
             
-            return await DataService.update_dataset(db, dataset_id, update_data)
-            
+        except HTTPException as http_ex:
+            # Re-raise HTTP exceptions directly
+            raise http_ex
         except Exception as e:
-            logger.error(f"Error processing dataset: {e}")
-            raise HTTPException(status_code=500, detail=f"Error processing dataset: {str(e)}")
+            logger.error(f"Unexpected error processing dataset: {e}")
+            raise HTTPException(status_code=500, detail=f"Unexpected error processing dataset: {str(e)}")
     
     @staticmethod
     async def _process_network_dataset(
@@ -592,6 +682,7 @@ class DataService:
         options: AnonymizationOptions
     ) -> Dataset:
         """Apply anonymization to a dataset."""
+        # Get dataset record
         dataset = await DataService.get_dataset(db, dataset_id)
         
         if not dataset:
@@ -604,26 +695,36 @@ class DataService:
             raise HTTPException(status_code=400, detail="Dataset file not found")
         
         try:
-            # Load the dataset
-            file_type = dataset.type
-            
-            if file_type == "CSV" or (file_type == "NETWORK" and file_path.endswith(".csv")):
-                df = pd.read_csv(file_path)
-            elif file_type == "XLSX":
-                df = pd.read_excel(file_path)
-            elif file_type == "JSON":
-                with open(file_path, 'r') as f:
-                    data = json.load(f)
-                if isinstance(data, list):
-                    df = pd.DataFrame(data)
+            # Load the dataset based on file type
+            try:
+                file_type = dataset.type
+                
+                if file_type == "CSV" or (file_type == "NETWORK" and file_path.endswith(".csv")):
+                    df = pd.read_csv(file_path)
+                elif file_type == "XLSX":
+                    df = pd.read_excel(file_path)
+                elif file_type == "JSON":
+                    with open(file_path, 'r') as f:
+                        data = json.load(f)
+                    if isinstance(data, list):
+                        df = pd.DataFrame(data)
+                    else:
+                        df = pd.DataFrame([data])
+                elif file_type == "NETWORK":
+                    # For network files, use special handling
+                    return await DataService._anonymize_network_dataset(db, dataset, options)
                 else:
-                    df = pd.DataFrame([data])
-            elif file_type == "NETWORK":
-                # For network files, handle differently
-                return await DataService._anonymize_network_dataset(db, dataset, options)
-            else:
-                raise HTTPException(status_code=400, detail=f"Unsupported file type for anonymization: {file_type}")
-            
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Unsupported file type for anonymization: {file_type}"
+                    )
+            except Exception as e:
+                logger.error(f"Error loading dataset file: {e}")
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Error loading dataset file: {str(e)}"
+                )
+                
             # Validate that specified fields exist in the dataset
             missing_fields = [field for field in options.sensitive_fields if field not in df.columns]
             if missing_fields:
@@ -642,365 +743,396 @@ class DataService:
             
             # Store mapping between original and anonymized values
             mappings = {}
+            mapping_file_path = None
             
             # Apply anonymization based on method
             if options.method == "pseudonymization":
-                # Create mappings and apply replacement for each sensitive field
-                for field in options.sensitive_fields:
-                    if field in df.columns:
-                        # Create a mapping of original values to pseudonyms
-                        unique_values = df[field].dropna().unique()
-                        pseudonyms = {
-                            val: f"{field}_{uuid.uuid4().hex[:8]}" 
-                            for val in unique_values
-                        }
-                        
-                        # Store mapping if requested
-                        if options.parameters and options.parameters.get("keep_mapping", True):
-                            # Convert any non-string keys to strings for JSON serialization
-                            mappings[field] = {str(k): v for k, v in pseudonyms.items()}
-                        
-                        # Replace values with pseudonyms using a lambda to handle NaN values
-                        df[field] = df[field].map(lambda x: pseudonyms.get(x, x) if pd.notna(x) else x)
+                try:
+                    # Create mappings and apply replacement for each sensitive field
+                    for field in options.sensitive_fields:
+                        if field in df.columns:
+                            # Create a mapping of original values to pseudonyms
+                            unique_values = df[field].dropna().unique()
+                            
+                            # Generate pseudonyms with better identifiers
+                            pseudonyms = {
+                                val: f"{field}_{uuid.uuid4().hex[:8]}" 
+                                for val in unique_values
+                            }
+                            
+                            # Store mapping if requested
+                            if options.parameters and options.parameters.get("keep_mapping", True):
+                                # Convert non-string keys to strings for JSON serialization
+                                try:
+                                    mappings[field] = {str(k): v for k, v in pseudonyms.items()}
+                                except Exception as mapping_err:
+                                    logger.warning(f"Error storing mapping for field {field}: {mapping_err}")
+                            
+                            # Replace values with pseudonyms
+                            df[field] = df[field].map(lambda x: pseudonyms.get(x, x) if pd.notna(x) else x)
+                except Exception as e:
+                    logger.error(f"Error applying pseudonymization: {e}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Error applying pseudonymization: {str(e)}"
+                    )
                         
             elif options.method == "aggregation":
-                # Identify which fields to aggregate
-                sensitive_fields = options.sensitive_fields
-                quasi_identifiers = options.quasi_identifiers or []
-                
-                if not quasi_identifiers:
-                    # If no quasi-identifiers provided, use all non-sensitive columns
-                    quasi_identifiers = [col for col in df.columns if col not in sensitive_fields]
-                
-                # Determine minimum group size (k value)
-                k_value = options.parameters.get("k_value", 2) if options.parameters else 2
-                
-                # Group by quasi-identifiers and aggregate sensitive fields
-                if quasi_identifiers:
-                    # Create a copy for the aggregation
-                    agg_df = df.copy()
+                try:
+                    # Identify which fields to aggregate
+                    sensitive_fields = options.sensitive_fields
+                    quasi_identifiers = options.quasi_identifiers or []
                     
-                    # For each sensitive field, replace values with aggregated values
-                    for field in sensitive_fields:
-                        if field in df.columns:
-                            if pd.api.types.is_numeric_dtype(df[field]):
-                                # For numeric fields, use mean or median
-                                grouped = df.groupby(quasi_identifiers)[field]
-                                group_sizes = grouped.size()
-                                
-                                # Only aggregate groups meeting k-anonymity threshold
-                                valid_groups = group_sizes[group_sizes >= k_value].index
-                                invalid_groups = group_sizes[group_sizes < k_value].index
-                                
-                                # Create aggregation
-                                agg_values = grouped.mean()
-                                
-                                # Apply aggregation to each group
-                                for idx in valid_groups:
-                                    # Handle both single and multiple quasi-identifiers
-                                    if len(quasi_identifiers) == 1:
-                                        mask = df[quasi_identifiers[0]] == idx
-                                    else:
-                                        mask = True
-                                        for i, qi in enumerate(quasi_identifiers):
-                                            mask &= df[qi] == idx[i] if isinstance(idx, tuple) else idx
-                                    
-                                    # Apply aggregated value
-                                    agg_df.loc[mask, field] = agg_values.loc[idx]
-                                
-                                # Suppress small groups
-                                for idx in invalid_groups:
-                                    if len(quasi_identifiers) == 1:
-                                        mask = df[quasi_identifiers[0]] == idx
-                                    else:
-                                        mask = True
-                                        for i, qi in enumerate(quasi_identifiers):
-                                            mask &= df[qi] == idx[i] if isinstance(idx, tuple) else idx
-                                    
-                                    # Suppress values in small groups
-                                    agg_df.loc[mask, field] = None
-                            else:
-                                # For non-numeric fields, use most frequent value
-                                grouped = df.groupby(quasi_identifiers)[field]
-                                group_sizes = grouped.size()
-                                
-                                # Only aggregate groups meeting k-anonymity threshold
-                                valid_groups = group_sizes[group_sizes >= k_value].index
-                                invalid_groups = group_sizes[group_sizes < k_value].index
-                                
-                                # For each valid group, find the most frequent value
-                                for idx in valid_groups:
-                                    if len(quasi_identifiers) == 1:
-                                        group_mask = df[quasi_identifiers[0]] == idx
-                                    else:
-                                        group_mask = True
-                                        for i, qi in enumerate(quasi_identifiers):
-                                            group_mask &= df[qi] == idx[i] if isinstance(idx, tuple) else idx
-                                    
-                                    # Get the most frequent value in this group
-                                    most_frequent = df.loc[group_mask, field].mode()
-                                    if len(most_frequent) > 0:
-                                        agg_df.loc[group_mask, field] = most_frequent[0]
-                                
-                                # Suppress small groups
-                                for idx in invalid_groups:
-                                    if len(quasi_identifiers) == 1:
-                                        mask = df[quasi_identifiers[0]] == idx
-                                    else:
-                                        mask = True
-                                        for i, qi in enumerate(quasi_identifiers):
-                                            mask &= df[qi] == idx[i] if isinstance(idx, tuple) else idx
-                                    
-                                    # Suppress values in small groups
-                                    agg_df.loc[mask, field] = "[REDACTED]"
+                    if not quasi_identifiers:
+                        # If no quasi-identifiers provided, use all non-sensitive columns
+                        quasi_identifiers = [col for col in df.columns if col not in sensitive_fields]
                     
-                    df = agg_df
+                    # Determine minimum group size (k value)
+                    k_value = int(options.parameters.get("k_value", 2)) if options.parameters else 2
+                    
+                    # Group by quasi-identifiers and aggregate sensitive fields
+                    if quasi_identifiers:
+                        # Create a copy for the aggregation
+                        agg_df = df.copy()
+                        
+                        # For each sensitive field, replace values with aggregated values
+                        for field in sensitive_fields:
+                            if field in df.columns:
+                                # Create groups based on quasi-identifiers
+                                try:
+                                    grouped = df.groupby(quasi_identifiers)[field]
+                                    group_sizes = grouped.size()
+                                    
+                                    # Only aggregate groups meeting k-anonymity threshold
+                                    valid_groups = group_sizes[group_sizes >= k_value].index
+                                    invalid_groups = group_sizes[group_sizes < k_value].index
+                                    
+                                    # Apply different aggregation strategies based on data type
+                                    if pd.api.types.is_numeric_dtype(df[field]):
+                                        # For numeric fields, use mean
+                                        agg_values = grouped.mean()
+                                    else:
+                                        # For non-numeric fields, use most frequent value
+                                        # We need to handle each group separately
+                                        agg_values = pd.Series(index=grouped.groups.keys())
+                                        for name, group in grouped:
+                                            mode_val = group.mode()
+                                            if not mode_val.empty:
+                                                if isinstance(name, tuple):
+                                                    agg_values[name] = mode_val.iloc[0]
+                                                else:
+                                                    agg_values[name] = mode_val.iloc[0]
+                                    
+                                    # Apply aggregation to each valid group
+                                    for idx in valid_groups:
+                                        # Handle both single and multiple quasi-identifiers
+                                        mask = DataService._create_group_mask(df, quasi_identifiers, idx)
+                                        
+                                        # Apply aggregated value
+                                        if idx in agg_values:
+                                            agg_df.loc[mask, field] = agg_values[idx]
+                                    
+                                    # Suppress small groups
+                                    for idx in invalid_groups:
+                                        mask = DataService._create_group_mask(df, quasi_identifiers, idx)
+                                        
+                                        # Suppress values in small groups
+                                        agg_df.loc[mask, field] = "[REDACTED]"
+                                        
+                                except Exception as agg_err:
+                                    logger.warning(f"Error aggregating field {field}: {agg_err}")
+                                    # Apply fallback: simple suppression for this field
+                                    for idx in invalid_groups:
+                                        mask = DataService._create_group_mask(df, quasi_identifiers, idx)
+                                        agg_df.loc[mask, field] = "[REDACTED]"
+                        
+                        df = agg_df
+                except Exception as e:
+                    logger.error(f"Error applying aggregation: {e}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Error applying aggregation anonymization: {str(e)}"
+                    )
                     
             elif options.method == "k_anonymity":
-                if not options.quasi_identifiers:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail="Quasi-identifiers are required for k-anonymity"
-                    )
-                
-                # Determine k value (minimum group size)
-                k_value = options.parameters.get("k_value", 5) if options.parameters else 5
-                
-                # Implement k-anonymity algorithm
-                anon_df = df.copy()
-                
-                # 1. For each quasi-identifier, apply generalization
-                for qi in options.quasi_identifiers:
-                    if qi in df.columns:
-                        if pd.api.types.is_numeric_dtype(df[qi]):
-                            # For numeric columns, bin the data
-                            bins = 10  # Start with 10 bins
-                            while bins > 1:
-                                # Try to create bins of equal width
+                try:
+                    if not options.quasi_identifiers:
+                        raise HTTPException(
+                            status_code=400, 
+                            detail="Quasi-identifiers are required for k-anonymity"
+                        )
+                    
+                    # Determine k value (minimum group size)
+                    k_value = int(options.parameters.get("k_value", 5)) if options.parameters else 5
+                    
+                    # Implement k-anonymity algorithm
+                    anon_df = df.copy()
+                    
+                    # 1. For each quasi-identifier, apply generalization
+                    for qi in options.quasi_identifiers:
+                        if qi in df.columns:
+                            # Get the data type and apply appropriate anonymization technique
+                            if pd.api.types.is_numeric_dtype(df[qi]):
+                                # For numeric columns, bin the data
                                 try:
-                                    bin_ranges = pd.cut(df[qi], bins=bins, precision=2)
-                                    anon_df[qi] = bin_ranges.astype(str)
-                                    
-                                    # Check if k-anonymity is satisfied
-                                    group_counts = anon_df.groupby(options.quasi_identifiers).size()
-                                    if group_counts.min() >= k_value:
-                                        break
-                                except Exception as e:
-                                    logger.warning(f"Error creating bins for {qi}: {e}")
-                                
-                                # Reduce number of bins to make groups larger
-                                bins = max(1, bins - 2)
+                                    anon_df = DataService._anonymize_numeric_column(
+                                        df=anon_df,
+                                        column=qi,
+                                        quasi_identifiers=options.quasi_identifiers,
+                                        k_value=k_value
+                                    )
+                                except Exception as num_err:
+                                    logger.error(f"Error anonymizing numeric column {qi}: {num_err}")
+                                    # Fallback to simple suppression
+                                    anon_df[qi] = f"[NUMERIC_{qi.upper()}]"
                             
-                            # If we couldn't achieve k-anonymity with binning
-                            if bins == 1:
-                                # Just use the mean value for all records
-                                anon_df[qi] = f"[{df[qi].mean():.2f}]"
-                        
-                        elif pd.api.types.is_datetime64_dtype(df[qi]) or pd.api.types.is_datetime64_any_dtype(df[qi]):
-                            # For datetime columns, try different levels of generalization
-                            df[qi] = pd.to_datetime(df[qi])
+                            elif pd.api.types.is_datetime64_dtype(df[qi]) or pd.api.types.is_datetime64_any_dtype(df[qi]):
+                                # For datetime columns, apply date generalization
+                                try:
+                                    anon_df = DataService._anonymize_datetime_column(
+                                        df=anon_df,
+                                        column=qi,
+                                        date_column=df[qi],
+                                        quasi_identifiers=options.quasi_identifiers,
+                                        k_value=k_value
+                                    )
+                                except Exception as date_err:
+                                    logger.error(f"Error anonymizing datetime column {qi}: {date_err}")
+                                    # Fallback to simple suppression
+                                    anon_df[qi] = f"[DATE_{qi.upper()}]"
                             
-                            # Try year-month-day format
-                            anon_df[qi] = df[qi].dt.strftime("%Y-%m-%d")
-                            group_counts = anon_df.groupby(options.quasi_identifiers).size()
-                            
-                            if group_counts.min() < k_value:
-                                # Try year-month format
-                                anon_df[qi] = df[qi].dt.strftime("%Y-%m")
-                                group_counts = anon_df.groupby(options.quasi_identifiers).size()
-                                
-                                if group_counts.min() < k_value:
-                                    # Fall back to year only
-                                    anon_df[qi] = df[qi].dt.strftime("%Y")
-                                    group_counts = anon_df.groupby(options.quasi_identifiers).size()
-                                    
-                                    if group_counts.min() < k_value:
-                                        # If we still can't achieve k-anonymity, use decade
-                                        anon_df[qi] = (df[qi].dt.year // 10 * 10).astype(str) + "s"
-                        
-                        else:
-                            # For string/categorical columns, try various anonymization techniques
-                            
-                            # 1. Try truncation first (keep first few characters)
-                            for length in range(min(10, df[qi].astype(str).str.len().max()), 0, -1):
-                                anon_df[qi] = df[qi].astype(str).str[:length]
-                                group_counts = anon_df.groupby(options.quasi_identifiers).size()
-                                if group_counts.min() >= k_value:
-                                    break
-                            
-                            # 2. If truncation didn't work, try first character + asterisks
-                            if group_counts.min() < k_value:
-                                max_length = df[qi].astype(str).str.len().max()
-                                anon_df[qi] = df[qi].astype(str).str[:1] + "*" * (max_length - 1)
-                                group_counts = anon_df.groupby(options.quasi_identifiers).size()
-                            
-                            # 3. If still not anonymous enough, use first character only
-                            if group_counts.min() < k_value:
-                                anon_df[qi] = df[qi].astype(str).str[:1] + "***"
-                                group_counts = anon_df.groupby(options.quasi_identifiers).size()
-                            
-                            # 4. Last resort: full suppression
-                            if group_counts.min() < k_value:
-                                anon_df[qi] = "[REDACTED]"
-                
-                # Check if we've achieved k-anonymity after generalizing all quasi-identifiers
-                group_counts = anon_df.groupby(options.quasi_identifiers).size()
-                
-                # If we still have small groups, suppress sensitive values in those groups
-                if group_counts.min() < k_value:
-                    for idx, count in group_counts.items():
-                        if count < k_value:
-                            # Create mask for this group
-                            if len(options.quasi_identifiers) == 1:
-                                mask = anon_df[options.quasi_identifiers[0]] == idx
                             else:
-                                mask = True
-                                for i, qi in enumerate(options.quasi_identifiers):
-                                    mask &= anon_df[qi] == idx[i] if isinstance(idx, tuple) else idx
-                            
-                            # Suppress sensitive fields for small groups
-                            for field in options.sensitive_fields:
-                                if field in anon_df.columns:
-                                    anon_df.loc[mask, field] = "[REDACTED]"
-                
-                # Use the anonymized dataframe
-                df = anon_df
+                                # For string/categorical columns
+                                try:
+                                    anon_df = DataService._anonymize_categorical_column(
+                                        df=anon_df,
+                                        column=qi,
+                                        quasi_identifiers=options.quasi_identifiers,
+                                        k_value=k_value
+                                    )
+                                except Exception as cat_err:
+                                    logger.error(f"Error anonymizing categorical column {qi}: {cat_err}")
+                                    # Fallback to simple suppression
+                                    anon_df[qi] = f"[TEXT_{qi.upper()}]"
+                    
+                    # Check if we've achieved k-anonymity after generalizing all quasi-identifiers
+                    try:
+                        group_counts = anon_df.groupby(options.quasi_identifiers).size()
+                        
+                        # If we still have small groups, suppress sensitive values in those groups
+                        if len(group_counts) > 0 and group_counts.min() < k_value:
+                            for idx, count in group_counts.items():
+                                if count < k_value:
+                                    # Create mask for this group
+                                    mask = DataService._create_group_mask(anon_df, options.quasi_identifiers, idx)
+                                    
+                                    # Suppress sensitive fields for small groups
+                                    for field in options.sensitive_fields:
+                                        if field in anon_df.columns:
+                                            anon_df.loc[mask, field] = "[REDACTED]"
+                    except Exception as grp_err:
+                        logger.warning(f"Error in final k-anonymity verification: {grp_err}")
+                    
+                    # Use the anonymized dataframe
+                    df = anon_df
+                except Exception as e:
+                    logger.error(f"Error applying k-anonymity: {e}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Error applying k-anonymity: {str(e)}"
+                    )
             
             # Save anonymized dataset
-            dataset_dir = os.path.dirname(file_path)
-            anonymized_file_path = os.path.join(dataset_dir, "anonymized_data.csv")
-            df.to_csv(anonymized_file_path, index=False)
+            try:
+                dataset_dir = os.path.dirname(file_path)
+                anonymized_file_path = os.path.join(dataset_dir, "anonymized_data.csv")
+                df.to_csv(anonymized_file_path, index=False)
+                logger.info(f"Anonymized dataset saved to {anonymized_file_path}")
+            except Exception as save_err:
+                logger.error(f"Error saving anonymized dataset: {save_err}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error saving anonymized dataset: {str(save_err)}"
+                )
             
             # Save mappings if available and requested
-            mapping_file_path = None
             if mappings and options.parameters and options.parameters.get("keep_mapping", True):
-                mapping_file_path = os.path.join(dataset_dir, "anonymization_mappings.json")
-                with open(mapping_file_path, 'w') as f:
-                    json.dump(mappings, f, indent=2)
+                try:
+                    mapping_file_path = os.path.join(dataset_dir, "anonymization_mappings.json")
+                    with open(mapping_file_path, 'w') as f:
+                        json.dump(mappings, f, indent=2)
+                    logger.info(f"Anonymization mappings saved to {mapping_file_path}")
+                except Exception as map_err:
+                    logger.error(f"Error saving anonymization mappings: {map_err}")
+                    # Don't fail the whole operation if only mapping saving fails
+                    mapping_file_path = None
             
             # Update dataset record
-            anonymization_details = {
-                "method": options.method,
-                "sensitive_fields": options.sensitive_fields,
-                "quasi_identifiers": options.quasi_identifiers,
-                "parameters": options.parameters,
-                "timestamp": datetime.now().isoformat(),
-            }
-            
-            # Include mapping path in metadata if mapping was saved
-            if mapping_file_path:
-                anonymization_details["mapping_file_path"] = mapping_file_path
-            
-            update_data = {
-                "status": "Anonymized",
-                "anonymized_file_path": anonymized_file_path,
-                "columns": df.columns.tolist(),
-                "row_count": len(df),
-                "metadata": {
-                    **(dataset.metadata or {}),
-                    "anonymization": anonymization_details
+            try:
+                # Create a copy of the existing metadata or initialize an empty dict
+                metadata = dict(dataset.metadata or {})
+                
+                # Build anonymization details
+                anonymization_details = {
+                    "method": options.method,
+                    "sensitive_fields": options.sensitive_fields,
+                    "quasi_identifiers": options.quasi_identifiers,
+                    "parameters": options.parameters,
+                    "timestamp": datetime.now().isoformat(),
                 }
-            }
-            
-            return await DataService.update_dataset(db, dataset_id, update_data)
-            
+                
+                # Include mapping path in metadata if mapping was saved
+                if mapping_file_path:
+                    anonymization_details["mapping_file_path"] = mapping_file_path
+                
+                # Update metadata with anonymization details
+                metadata["anonymization"] = anonymization_details
+                
+                update_data = {
+                    "status": "Anonymized",
+                    "anonymized_file_path": anonymized_file_path,
+                    "columns": df.columns.tolist(),
+                    "row_count": len(df),
+                    "metadata": metadata
+                }
+                
+                return await DataService.update_dataset(db, dataset_id, update_data)
+            except Exception as update_err:
+                logger.error(f"Error updating dataset record: {update_err}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Dataset was anonymized but database record could not be updated: {str(update_err)}"
+                )
+                
+        except HTTPException as http_ex:
+            # Re-raise HTTP exceptions directly
+            raise http_ex
         except Exception as e:
-            logger.error(f"Error anonymizing dataset: {e}")
-            raise HTTPException(status_code=500, detail=f"Error anonymizing dataset: {str(e)}")
+            logger.error(f"Unexpected error anonymizing dataset: {e}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Unexpected error anonymizing dataset: {str(e)}"
+            )
     
     @staticmethod
-    async def _anonymize_network_dataset(
-        db: AsyncSession, 
-        dataset: Dataset, 
-        options: AnonymizationOptions
-    ) -> Dataset:
-        """Anonymize a network dataset."""
+    def _create_group_mask(df, quasi_identifiers, idx):
+        """Helper method to create a mask for a group based on quasi-identifiers."""
+        if len(quasi_identifiers) == 1:
+            return df[quasi_identifiers[0]] == idx
+        else:
+            mask = True
+            for i, qi in enumerate(quasi_identifiers):
+                mask &= df[qi] == idx[i] if isinstance(idx, tuple) else idx
+            return mask
+        
+    @staticmethod
+    def _anonymize_numeric_column(df, column, quasi_identifiers, k_value):
+        """Apply anonymization to a numeric column."""
+        anon_df = df.copy()
+        
+        # 1. Try binning with different numbers of bins
+        for bins in range(10, 0, -1):
+            try:
+                # Skip if data has no range (constant value)
+                if df[column].min() == df[column].max():
+                    anon_df[column] = f"[{df[column].min()}]"
+                    break
+                
+                # Create bins
+                bin_ranges = pd.cut(df[column], bins=bins, precision=2)
+                anon_df[column] = bin_ranges.astype(str)
+                
+                # Check if k-anonymity is satisfied
+                group_counts = anon_df.groupby(quasi_identifiers).size()
+                if group_counts.min() >= k_value:
+                    break
+            except Exception as e:
+                logger.warning(f"Error creating bins for {column} with {bins} bins: {e}")
+        
+        # 2. If binning didn't work, use even broader generalization
+        if bins == 1 or df[column].min() == df[column].max():
+            # For numeric data, use ranges like "[min-max]" or mean value
+            min_val = df[column].min()
+            max_val = df[column].max()
+            if min_val != max_val:
+                anon_df[column] = f"[{min_val:.2f}-{max_val:.2f}]"
+            else:
+                anon_df[column] = f"[{min_val:.2f}]"
+        
+        return anon_df
+        
+    @staticmethod
+    def _anonymize_datetime_column(df, column, date_column, quasi_identifiers, k_value):
+        """Apply anonymization to a datetime column."""
+        anon_df = df.copy()
+        
+        # Ensure date_column is datetime type
         try:
-            file_path = dataset.processed_file_path if dataset.processed_file_path else dataset.file_path
+            date_column = pd.to_datetime(date_column)
+        except:
+            # If conversion fails, treat as string
+            return DataService._anonymize_categorical_column(df, column, quasi_identifiers, k_value)
             
-            # Load the network
-            if file_path.endswith(".graphml"):
-                G = nx.read_graphml(file_path)
-            elif file_path.endswith(".gexf"):
-                G = nx.read_gexf(file_path)
-            elif file_path.endswith(".gml"):
-                G = nx.read_gml(file_path)
+        # Try different levels of date generalization
+        generalization_levels = [
+            "%Y-%m-%d",  # Year-Month-Day
+            "%Y-%m",     # Year-Month
+            "%Y",        # Year
+            "decade"     # Decade
+        ]
+        
+        for level in generalization_levels:
+            if level == "decade":
+                # For decade level, calculate decade from year
+                anon_df[column] = (date_column.dt.year // 10 * 10).astype(str) + "s"
             else:
-                raise ValueError(f"Unsupported network file format: {file_path}")
+                # Use strftime for other levels
+                anon_df[column] = date_column.dt.strftime(level)
             
-            # Apply anonymization to node attributes
-            if options.method == "pseudonymization":
-                # Create mapping of node IDs to anonymous IDs
-                node_mapping = {node: f"node_{i}" for i, node in enumerate(G.nodes())}
+            # Check if this level achieves k-anonymity
+            group_counts = anon_df.groupby(quasi_identifiers).size()
+            if len(group_counts) > 0 and group_counts.min() >= k_value:
+                break
+        
+        return anon_df
+        
+    @staticmethod
+    def _anonymize_categorical_column(df, column, quasi_identifiers, k_value):
+        """Apply anonymization to a categorical/string column."""
+        anon_df = df.copy()
+        str_col = df[column].astype(str)
+        
+        # Try different levels of generalization for string/categorical columns
+        
+        # 1. Try truncation at different lengths
+        max_len = str_col.str.len().max()
+        
+        # Try different lengths, starting from the maximum and reducing
+        for length in range(max_len, 0, -1):
+            # Skip if all strings are already shorter than current length
+            if max_len < length:
+                continue
                 
-                # Create a new graph with anonymized nodes
-                G_anon = nx.Graph() if not G.is_directed() else nx.DiGraph()
-                
-                # Add nodes with anonymized attributes
-                for node, attrs in G.nodes(data=True):
-                    new_attrs = {}
-                    for key, value in attrs.items():
-                        if key in options.columns:
-                            # Anonymize this attribute
-                            if isinstance(value, str):
-                                new_attrs[key] = f"{key}_{hash(value) % 1000}"
-                            else:
-                                new_attrs[key] = f"{key}_{value}"
-                        else:
-                            new_attrs[key] = value
-                    
-                    G_anon.add_node(node_mapping[node], **new_attrs)
-                
-                # Add edges with original attributes
-                for u, v, data in G.edges(data=True):
-                    G_anon.add_edge(node_mapping[u], node_mapping[v], **data)
-                
-                # Save anonymized network
-                dataset_dir = os.path.dirname(file_path)
-                anonymized_file_path = os.path.join(dataset_dir, "anonymized_network.graphml")
-                nx.write_graphml(G_anon, anonymized_file_path)
-                
-            elif options.method == "suppression":
-                # Create a new graph without the specified attributes
-                G_anon = nx.Graph() if not G.is_directed() else nx.DiGraph()
-                
-                # Add nodes without the suppressed attributes
-                for node, attrs in G.nodes(data=True):
-                    new_attrs = {k: v for k, v in attrs.items() if k not in options.columns}
-                    G_anon.add_node(node, **new_attrs)
-                
-                # Add edges with original attributes
-                for u, v, data in G.edges(data=True):
-                    G_anon.add_edge(u, v, **data)
-                
-                # Save anonymized network
-                dataset_dir = os.path.dirname(file_path)
-                anonymized_file_path = os.path.join(dataset_dir, "anonymized_network.graphml")
-                nx.write_graphml(G_anon, anonymized_file_path)
+            # Apply truncation
+            anon_df[column] = str_col.str[:length]
             
-            else:
-                # For other methods, apply similar logic as above but with appropriate anonymization
-                # For simplicity, default to pseudonymization
-                anonymized_file_path = file_path  # No change if method not implemented
+            # Check if k-anonymity is satisfied
+            group_counts = anon_df.groupby(quasi_identifiers).size()
+            if len(group_counts) > 0 and group_counts.min() >= k_value:
+                break
+        
+        # 2. If truncation doesn't work, try first character + asterisks
+        if length == 1 and (len(group_counts) == 0 or group_counts.min() < k_value):
+            anon_df[column] = str_col.str[:1] + "*" * (max_len - 1 if max_len > 1 else 1)
             
-            # Update dataset record
-            anonymization_details = options.dict()
-            anonymization_details["timestamp"] = datetime.now().isoformat()
+            # Check if k-anonymity is satisfied
+            group_counts = anon_df.groupby(quasi_identifiers).size()
             
-            update_data = {
-                "status": "Anonymized",
-                "anonymized_file_path": anonymized_file_path,
-                "metadata": {
-                    **(dataset.metadata or {}),
-                    "anonymization": anonymization_details
-                }
-            }
-            
-            return await DataService.update_dataset(db, dataset_id, update_data)
-            
-        except Exception as e:
-            logger.error(f"Error anonymizing network dataset: {e}")
-            raise HTTPException(status_code=500, detail=f"Error anonymizing network dataset: {str(e)}")
+            # 3. If still not enough, use complete suppression
+            if len(group_counts) == 0 or group_counts.min() < k_value:
+                anon_df[column] = "[REDACTED]"
+        
+        return anon_df
     
     @staticmethod
     async def get_dataset_preview(
