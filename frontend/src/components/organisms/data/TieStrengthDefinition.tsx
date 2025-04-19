@@ -163,7 +163,7 @@ const TieStrengthDefinitionForm: React.FC<TieStrengthDefinitionProps> = ({ datas
           <Button 
             type="submit" 
             variant="primary" 
-            loading={isLoading || isSubmitting}
+            isLoading={isLoading || isSubmitting}
             disabled={isLoading || isSubmitting}
           >
             Save Definition

@@ -142,7 +142,7 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
     setError(null);
 
     // Format options according to the backend schema
-    const formattedOptions = {
+    const formattedOptions: AnonymizationOptions = {
       method: options.method,
       sensitive_fields: options.sensitive_fields,
       quasi_identifiers: options.quasi_identifiers || [],
@@ -151,6 +151,8 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
         keep_mapping: options.keep_mapping
       }
     };
+
+    console.log('Submitting anonymization options:', formattedOptions);
 
     try {
       await onSubmit(formattedOptions);

@@ -129,16 +129,16 @@ const NetworkCreationModal: React.FC<NetworkCreationModalProps> = ({
                 id="dataset"
                 value={datasetId.toString()}
                 onChange={(e) => setDatasetId(e.target.value ? Number(e.target.value) : '')}
+                options={[
+                  { value: "", label: "Select a dataset" },
+                  ...datasets.map(dataset => ({
+                    value: dataset.id.toString(),
+                    label: `${dataset.name} (${dataset.type})`
+                  }))
+                ]}
                 fullWidth
                 disabled={isLoadingDatasets}
-              >
-                <option value="">Select a dataset</option>
-                {datasets.map(dataset => (
-                  <option key={dataset.id} value={dataset.id}>
-                    {dataset.name} ({dataset.type})
-                  </option>
-                ))}
-              </Select>
+              />
               {isLoadingDatasets && (
                 <Text variant="caption" className="text-gray-500 mt-1">
                   Loading datasets...
@@ -185,13 +185,14 @@ const NetworkCreationModal: React.FC<NetworkCreationModalProps> = ({
                       id="tie-strength"
                       value={tieStrengthDefinition}
                       onChange={(e) => setTieStrengthDefinition(e.target.value)}
+                      options={[
+                        { value: "frequency_based", label: "Frequency Based" },
+                        { value: "duration_based", label: "Duration Based" },
+                        { value: "multi_attribute", label: "Multi-attribute" },
+                        { value: "custom", label: "Custom Definition" }
+                      ]}
                       fullWidth
-                    >
-                      <option value="frequency_based">Frequency Based</option>
-                      <option value="duration_based">Duration Based</option>
-                      <option value="multi_attribute">Multi-attribute</option>
-                      <option value="custom">Custom Definition</option>
-                    </Select>
+                    />
                   </div>
                 )}
               </div>
@@ -217,7 +218,7 @@ const NetworkCreationModal: React.FC<NetworkCreationModalProps> = ({
               type="submit" 
               variant="primary"
               style={{ backgroundColor: '#9333ea', borderColor: '#9333ea' }}
-              loading={isCreating}
+              isLoading={isCreating}
               disabled={isCreating}
             >
               Create Network

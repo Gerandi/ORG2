@@ -183,24 +183,21 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
     setError(null);
 
     // Format options according to the backend schema
-    const formattedOptions = {
+    const formattedOptions: ProcessingOptions = {
       missing_values: {
-        strategy: processingOptions.missing_values?.strategy,
-        columns: processingOptions.missing_values?.columns,
+        strategy: processingOptions.missing_values?.strategy as any,
+        columns: processingOptions.missing_values?.columns || [],
         fill_value: processingOptions.missing_values?.strategy === 'constant' ? 
           processingOptions.missing_values?.fill_value : undefined
       },
-      data_types: Object.fromEntries(
-        Object.entries(processingOptions.data_types || {})
-          .filter(([_, value]) => value !== '') // Remove empty selections
-      ),
-      normalization: processingOptions.normalization?.strategy === 'none' ? 
-        { strategy: 'none', columns: [] } : 
-        {
-          strategy: processingOptions.normalization?.strategy,
-          columns: processingOptions.normalization?.columns
-        }
+      data_types: processingOptions.data_types || {},
+      normalization: {
+        strategy: processingOptions.normalization?.strategy as any,
+        columns: processingOptions.normalization?.columns || []
+      }
     };
+
+    console.log('Submitting processing options:', formattedOptions);
 
     try {
       await onSubmit(formattedOptions);
