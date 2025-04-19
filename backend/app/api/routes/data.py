@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form, Depends, Query
+from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form, Depends, Query, Response
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update
+import os
+import pandas as pd
+import json
 
 from app.core.database import get_async_session
 from app.services.data_service import DataService
@@ -257,3 +260,90 @@ async def define_tie_strength(
     await db.refresh(dataset)
 
     return dataset
+
+@router.get("/{dataset_id}/download")
+async def download_dataset(
+    dataset_id: int,
+    format: str = Query('csv', enum=['csv', 'xlsx', 'json']),
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user)
+):
+    """
+    Download a dataset in the specified format.
+    """
+    dataset = await DataService.get_dataset(db, dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    # Check access permission
+    if dataset.user_id != user.id and not user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not authorized to access this dataset")
+    
+    # Determine which file to use (anonymized, processed, or original)
+    file_path = dataset.anonymized_file_path or dataset.processed_file_path or dataset.file_path
+    
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=400, detail="Dataset file not found")
+    
+    try:
+        # Read file into pandas DataFrame
+        if file_path.endswith('.csv'):
+            df = pd.read_csv(file_path)
+        elif file_path.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(file_path)
+        elif file_path.endswith('.json'):
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                df = pd.DataFrame(data)
+            else:
+                df = pd.DataFrame([data])
+        else:
+            # For other formats, try csv first
+            try:
+                df = pd.read_csv(file_path)
+            except:
+                raise HTTPException(status_code=400, detail="Unsupported file format for download")
+        
+        # Prepare the file in the requested format
+        if format == 'csv':
+            output = df.to_csv(index=False)
+            media_type = "text/csv"
+            filename = f"{dataset.name.replace(' ', '_')}.csv"
+        elif format == 'xlsx':
+            from io import BytesIO
+            output_buffer = BytesIO()
+            df.to_excel(output_buffer, index=False)
+            output = output_buffer.getvalue()
+            media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            filename = f"{dataset.name.replace(' ', '_')}.xlsx"
+        elif format == 'json':
+            output = df.to_json(orient='records')
+            media_type = "application/json"
+            filename = f"{dataset.name.replace(' ', '_')}.json"
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported format")
+        
+        # Set appropriate headers
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+        
+        if format == 'xlsx':
+            # Return binary response for Excel
+            return Response(
+                content=output,
+                media_type=media_type,
+                headers=headers
+            )
+        else:
+            # Return text response for CSV and JSON
+            return Response(
+                content=output,
+                media_type=media_type,
+                headers=headers
+            )
+            
+    except Exception as e:
+        logger.error(f"Error downloading dataset: {e}")
+        raise HTTPException(status_code=500, detail=f"Error downloading dataset: {str(e)}")

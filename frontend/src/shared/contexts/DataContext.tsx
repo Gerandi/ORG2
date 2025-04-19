@@ -36,6 +36,7 @@ interface DataContextProps {
   defineTieStrength: (id: number, definition: TieStrengthDefinition) => Promise<void>;
   getDatasetPreview: (id: number, limit?: number) => Promise<void>;
   getDatasetStats: (id: number) => Promise<void>;
+  downloadDataset: (id: number, format: 'csv' | 'xlsx' | 'json') => Promise<void>;
 }
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
@@ -270,6 +271,20 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
       setIsLoading(false);
     }
   }, [selectedDataset?.id]);
+
+  const downloadDataset = useCallback(async (id: number, format: 'csv' | 'xlsx' | 'json'): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await dataService.downloadDataset(id, format);
+    } catch (err) {
+      setError('Failed to download dataset');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
   
   useEffect(() => {
     if (isAuthenticated) {
@@ -303,6 +318,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         defineTieStrength,
         getDatasetPreview,
         getDatasetStats,
+        downloadDataset,
       }}
     >
       {children}

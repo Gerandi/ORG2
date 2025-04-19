@@ -22,11 +22,16 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [options, setOptions] = useState<AnonymizationOptions>({
+  const [options, setOptions] = useState<{
+    method: string;
+    sensitive_fields: string[];
+    quasi_identifiers: string[];
+    k_value: number;
+    keep_mapping: boolean;
+  }>({
     method: 'pseudonymization',
     sensitive_fields: [],
     quasi_identifiers: [],
-    parameters: {},
     k_value: 5,
     keep_mapping: true
   });
@@ -37,7 +42,6 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
       method: 'pseudonymization',
       sensitive_fields: [],
       quasi_identifiers: [],
-      parameters: {},
       k_value: 5,
       keep_mapping: true
     });
@@ -88,9 +92,9 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
   // Toggle quasi-identifier
   const toggleQuasiIdentifier = (column: string) => {
     setOptions(prev => {
-      const newFields = prev.quasi_identifiers?.includes(column)
-        ? prev.quasi_identifiers!.filter(c => c !== column)
-        : [...(prev.quasi_identifiers || []), column];
+      const newFields = prev.quasi_identifiers.includes(column)
+        ? prev.quasi_identifiers.filter(c => c !== column)
+        : [...prev.quasi_identifiers, column];
       
       return {
         ...prev,
@@ -128,12 +132,12 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
       return;
     }
     
-    if (options.method === 'k_anonymity' && (!options.quasi_identifiers || options.quasi_identifiers.length === 0)) {
-      setError('For K-Anonymity, please select at least one quasi-identifier');
+    if ((options.method === 'k_anonymity' || options.method === 'aggregation') && options.quasi_identifiers.length === 0) {
+      setError(`For ${options.method === 'k_anonymity' ? 'K-Anonymity' : 'Aggregation'}, please select at least one quasi-identifier`);
       return;
     }
 
-    if (options.method === 'k_anonymity' && (!options.k_value || options.k_value < 2)) {
+    if (options.method === 'k_anonymity' && options.k_value < 2) {
       setError('For K-Anonymity, K value must be at least 2');
       return;
     }
@@ -145,7 +149,7 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
     const formattedOptions: AnonymizationOptions = {
       method: options.method,
       sensitive_fields: options.sensitive_fields,
-      quasi_identifiers: options.quasi_identifiers || [],
+      quasi_identifiers: options.quasi_identifiers,
       parameters: {
         k_value: options.k_value,
         keep_mapping: options.keep_mapping
@@ -234,7 +238,7 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
               </Text>
             </div>
             
-            {options.method === 'k_anonymity' && (
+            {(options.method === 'k_anonymity' || options.method === 'aggregation') && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Quasi-Identifiers
@@ -246,12 +250,17 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
                       <input
                         type="checkbox"
                         id={`quasi-${column}`}
-                        checked={options.quasi_identifiers?.includes(column) || false}
+                        checked={options.quasi_identifiers.includes(column)}
                         onChange={() => toggleQuasiIdentifier(column)}
                         className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        disabled={options.sensitive_fields.includes(column)}
                       />
-                      <label htmlFor={`quasi-${column}`} className="text-sm text-gray-700">
+                      <label 
+                        htmlFor={`quasi-${column}`} 
+                        className={`text-sm ${options.sensitive_fields.includes(column) ? 'text-gray-400' : 'text-gray-700'}`}
+                      >
                         {column}
+                        {options.sensitive_fields.includes(column) && " (selected as sensitive field)"}
                       </label>
                     </div>
                   ))}
@@ -267,41 +276,45 @@ const AnonymizationForm: React.FC<AnonymizationFormProps> = ({
         <Card className="overflow-visible">
           <Heading level={3} className="mb-4">Additional Options</Heading>
           
-          {options.method === 'k_anonymity' && (
+          {(options.method === 'k_anonymity' || options.method === 'aggregation') && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                K Value
+                K Value (minimum group size)
               </label>
               <Input
                 type="number"
                 min={2}
-                value={options.k_value || 5}
+                value={options.k_value}
                 onChange={handleKValueChange}
                 className="w-32"
               />
               <Text variant="caption" className="text-gray-500 mt-1">
-                Minimum number of records that should be indistinguishable (higher = more anonymous)
+                {options.method === 'k_anonymity' 
+                  ? 'Minimum number of records that should be indistinguishable (higher = more anonymous)'
+                  : 'Minimum group size for aggregating values (smaller groups will be suppressed or merged)'}
               </Text>
             </div>
           )}
           
-          <div className="mb-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="keep-mapping"
-                checked={options.keep_mapping}
-                onChange={handleKeepMappingChange}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <label htmlFor="keep-mapping" className="ml-2 block text-sm text-gray-700">
-                Keep internal mapping for tracking
-              </label>
+          {options.method === 'pseudonymization' && (
+            <div className="mb-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="keep-mapping"
+                  checked={options.keep_mapping}
+                  onChange={handleKeepMappingChange}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <label htmlFor="keep-mapping" className="ml-2 block text-sm text-gray-700">
+                  Keep internal mapping for tracking
+                </label>
+              </div>
+              <Text variant="caption" className="text-gray-500 mt-1 ml-6">
+                Store the mapping between original and anonymized data (accessible only to administrators)
+              </Text>
             </div>
-            <Text variant="caption" className="text-gray-500 mt-1 ml-6">
-              Store the mapping between original and anonymized data (accessible only to administrators)
-            </Text>
-          </div>
+          )}
         </Card>
         
         {error && (

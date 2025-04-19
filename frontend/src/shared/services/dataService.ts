@@ -180,12 +180,35 @@ class DataService {
   // Download a dataset
   public async downloadDataset(id: number, format: 'csv' | 'xlsx' | 'json' = 'csv'): Promise<Blob> {
     try {
-      return await apiService.get<Blob>(
-        `${this.baseUrl}/${id}/download?format=${format}`,
-        {
-          responseType: 'blob',
-        }
-      );
+      const response = await apiService.request({
+        url: `${this.baseUrl}/${id}/download?format=${format}`,
+        method: 'GET',
+        responseType: 'blob'
+      });
+      
+      // Create download handler
+      const contentDisposition = response.headers?.['content-disposition'] || '';
+      let filename = `dataset-${id}.${format}`;
+      
+      // Try to extract filename from Content-Disposition header if available
+      const filenameMatch = contentDisposition.match(/filename="(.+?)"/);
+      if (filenameMatch && filenameMatch.length > 1) {
+        filename = filenameMatch[1];
+      }
+      
+      // Create a download link and trigger the download
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return response.data;
     } catch (error) {
       console.error(`Error downloading dataset ${id}:`, error);
       throw error;

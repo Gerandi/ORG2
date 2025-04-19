@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CogIcon, PlusCircle, MinusCircle, CornerDownLeft } from 'lucide-react';
+import { CogIcon } from 'lucide-react';
 import Card from '../../atoms/Card';
 import { Heading, Text } from '../../atoms/Typography';
 import Button from '../../atoms/Button';
@@ -47,6 +47,7 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
         columns: []
       }
     });
+    setError(null);
   }, [datasetId]);
 
   // Options for the different strategies
@@ -134,13 +135,21 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
 
   // Update data type for a column
   const handleDataTypeChange = (column: string, type: string) => {
-    setProcessingOptions(prev => ({
-      ...prev,
-      data_types: {
-        ...prev.data_types,
-        [column]: type
+    // If type is empty, remove the column from data_types
+    setProcessingOptions(prev => {
+      const newDataTypes = { ...prev.data_types };
+      
+      if (type === '') {
+        delete newDataTypes[column];
+      } else {
+        newDataTypes[column] = type;
       }
-    }));
+      
+      return {
+        ...prev,
+        data_types: newDataTypes
+      };
+    });
   };
 
   // Update constant value for missing values
@@ -161,20 +170,23 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
     
     // Validate the form
     if (processingOptions.missing_values?.strategy === 'constant' && 
-        processingOptions.missing_values.fill_value === undefined) {
+        !processingOptions.missing_values.fill_value) {
       setError('Please enter a fill value for constant strategy.');
       return;
     }
     
-    // If using any strategy, columns must be selected
-    if (processingOptions.missing_values?.columns?.length === 0) {
+    // If using any non-remove strategy, columns must be selected
+    if (processingOptions.missing_values?.strategy !== 'remove' && 
+        (!processingOptions.missing_values?.columns || 
+         processingOptions.missing_values.columns.length === 0)) {
       setError('Please select at least one column for missing values handling.');
       return;
     }
 
     // If using normalization (not 'none'), columns must be selected
     if (processingOptions.normalization?.strategy !== 'none' && 
-        processingOptions.normalization?.columns?.length === 0) {
+        (!processingOptions.normalization?.columns || 
+         processingOptions.normalization.columns.length === 0)) {
       setError('Please select at least one column for normalization.');
       return;
     }
@@ -182,25 +194,27 @@ const DataProcessingForm: React.FC<DataProcessingFormProps> = ({
     setIsSubmitting(true);
     setError(null);
 
-    // Format options according to the backend schema
-    const formattedOptions: ProcessingOptions = {
-      missing_values: {
-        strategy: processingOptions.missing_values?.strategy as any,
-        columns: processingOptions.missing_values?.columns || [],
-        fill_value: processingOptions.missing_values?.strategy === 'constant' ? 
-          processingOptions.missing_values?.fill_value : undefined
-      },
-      data_types: processingOptions.data_types || {},
-      normalization: {
-        strategy: processingOptions.normalization?.strategy as any,
-        columns: processingOptions.normalization?.columns || []
-      }
-    };
-
-    console.log('Submitting processing options:', formattedOptions);
-
     try {
-      await onSubmit(formattedOptions);
+      // Format options according to the backend schema
+      const options: ProcessingOptions = {
+        missing_values: processingOptions.missing_values?.columns?.length ? {
+          strategy: processingOptions.missing_values.strategy,
+          columns: processingOptions.missing_values.columns,
+          fill_value: processingOptions.missing_values.strategy === 'constant' ? 
+            processingOptions.missing_values.fill_value : undefined
+        } : undefined,
+        
+        data_types: Object.keys(processingOptions.data_types || {}).length > 0 ? 
+          processingOptions.data_types : undefined,
+        
+        normalization: processingOptions.normalization?.strategy !== 'none' ? {
+          strategy: processingOptions.normalization?.strategy,
+          columns: processingOptions.normalization?.columns || []
+        } : undefined
+      };
+
+      console.log('Submitting processing options:', options);
+      await onSubmit(options);
     } catch (err) {
       console.error('Processing failed:', err);
       setError('Failed to process dataset. Please try again.');

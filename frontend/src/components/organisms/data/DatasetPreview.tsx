@@ -16,15 +16,16 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
   const [statsLoading, setStatsLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   const { 
     dataPreview,
     dataStats, 
     getDatasetPreview, 
     getDatasetStats, 
+    downloadDataset,
     isLoading, 
-    error,
-    dataService
+    error 
   } = useDataContext();
 
   // Load preview data when component mounts or datasetId changes
@@ -74,19 +75,14 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
   };
 
   const handleDownload = async (format: 'csv' | 'xlsx' | 'json') => {
+    setDownloadLoading(true);
     try {
-      const blob = await dataService.downloadDataset(datasetId, format);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `dataset_${datasetId}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await downloadDataset(datasetId, format);
     } catch (err) {
       console.error('Download failed:', err);
       setPreviewError('Failed to download dataset');
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -134,9 +130,10 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
           
           <div className="flex space-x-2">
             <div className="relative group">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" disabled={downloadLoading || isLoading}>
                 <Download size={16} className="mr-1" />
                 Download
+                {downloadLoading && <span className="ml-2 inline-block animate-spin">⋯</span>}
               </Button>
               
               <div className="absolute right-0 mt-1 w-36 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10 hidden group-hover:block">
@@ -144,18 +141,21 @@ const DatasetPreview: React.FC<DatasetPreviewProps> = ({ datasetId }) => {
                   <button
                     onClick={() => handleDownload('csv')}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    disabled={downloadLoading || isLoading}
                   >
                     CSV
                   </button>
                   <button
                     onClick={() => handleDownload('xlsx')}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    disabled={downloadLoading || isLoading}
                   >
                     Excel (XLSX)
                   </button>
                   <button
                     onClick={() => handleDownload('json')}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    disabled={downloadLoading || isLoading}
                   >
                     JSON
                   </button>
